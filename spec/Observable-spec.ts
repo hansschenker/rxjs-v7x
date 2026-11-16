@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { Observer, TeardownLogic } from '../src/internal/types';
-import { Observable, config, Subscription, noop, Subscriber, Operator, NEVER, Subject, of, throwError, empty } from 'rxjs';
-import { map, multicast, refCount, filter, count, tap, combineLatest, concat, merge, race, zip, catchError, concatMap, switchMap, publish, publishLast, publishBehavior, share, finalize} from 'rxjs/operators';
+import { Observer } from '../src/internal/types';
+import { Observable, config, Subscription, noop, Subscriber, of, throwError, empty } from 'rxjs';
+import { map, tap, catchError, concatMap, switchMap, finalize } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
 import { observableMatcher } from './helpers/observableMatcher';
 
@@ -616,7 +616,6 @@ describe('Observable', () => {
       expect(called).to.be.true;
     });
 
-
     it('should handle empty string sync errors', () => {
       const badObservable = new Observable(() => {
         throw '';
@@ -631,7 +630,6 @@ describe('Observable', () => {
       });
       expect(caught).to.be.true;
     });
-
 
     describe('if config.useDeprecatedSynchronousErrorHandling === true', () => {
       beforeEach(() => {
@@ -655,7 +653,6 @@ describe('Observable', () => {
           observable.subscribe(sink);
         }).to.throw('error!');
       });
-
 
       // From issue: https://github.com/ReactiveX/rxjs/issues/5979
       it('should still rethrow synchronous errors from next handlers on synchronous observables', () => {
@@ -725,7 +722,6 @@ describe('Observable', () => {
         }
         expect(called).to.be.true;
       });
-
 
       it('should handle empty string sync errors', () => {
         const badObservable = new Observable(() => {
@@ -969,43 +965,3 @@ describe('Observable.create', () => {
   });
 });
 
-/** @test {Observable} */
-describe('Observable.lift', () => {
-  let rxTestScheduler: TestScheduler;
-
-  beforeEach(() => {
-    rxTestScheduler = new TestScheduler(observableMatcher);
-  });
-
-  class MyCustomObservable<T> extends Observable<T> {
-    static from<T>(source: any) {
-      const observable = new MyCustomObservable<T>();
-      observable.source = <Observable<T>>source;
-      return observable;
-    }
-    lift<R>(operator: Operator<T, R>): Observable<R> {
-      const observable = new MyCustomObservable<R>();
-      (<any>observable).source = this;
-      (<any>observable).operator = operator;
-      return observable;
-    }
-  }
-
-  it('should return Observable which calls FinalizationLogic of operator on unsubscription', (done) => {
-    const myOperator: Operator<any, any> = {
-      call: (subscriber: Subscriber<any>, source: any) => {
-        const subscription = source.subscribe((x: any) => subscriber.next(x));
-        return () => {
-          subscription.unsubscribe();
-          done();
-        };
-      },
-    };
-
-    (NEVER as any).lift(myOperator)
-      .subscribe()
-      .unsubscribe();
-
-  });
-
-});

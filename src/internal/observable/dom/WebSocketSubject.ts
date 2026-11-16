@@ -2,7 +2,6 @@ import { Subject, AnonymousSubject } from '../../Subject';
 import { Subscriber } from '../../Subscriber';
 import { Observable } from '../../Observable';
 import { Subscription } from '../../Subscription';
-import { Operator } from '../../Operator';
 import { ReplaySubject } from '../../ReplaySubject';
 import { Observer, NextObserver } from '../../types';
 
@@ -189,14 +188,6 @@ export class WebSocketSubject<T> extends AnonymousSubject<T> {
       }
       this.destination = new ReplaySubject();
     }
-  }
-
-  /** @deprecated Internal implementation detail, do not use directly. Will be made internal in v8. */
-  lift<R>(operator: Operator<T, R>): WebSocketSubject<R> {
-    const sock = new WebSocketSubject<R>(this._config as WebSocketSubjectConfig<any>, this.destination as any);
-    sock.operator = operator;
-    sock.source = this;
-    return sock;
   }
 
   private _resetState() {

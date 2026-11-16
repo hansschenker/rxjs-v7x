@@ -1,4 +1,3 @@
-import { Operator } from './Operator';
 import { Observable } from './Observable';
 import { Subscriber } from './Subscriber';
 import { Subscription, EMPTY_SUBSCRIPTION } from './Subscription';
@@ -40,13 +39,6 @@ export class Subject<T> extends Observable<T> implements SubscriptionLike {
   constructor() {
     // NOTE: This must be here to obscure Observable's constructor.
     super();
-  }
-
-  /** @deprecated Internal implementation detail, do not use directly. Will be made internal in v8. */
-  lift<R>(operator: Operator<T, R>): Observable<R> {
-    const subject = new AnonymousSubject(this, this);
-    subject.operator = operator as any;
-    return subject as any;
   }
 
   /** @internal */
@@ -150,9 +142,24 @@ export class Subject<T> extends Observable<T> implements SubscriptionLike {
    * @return Observable that this Subject casts to.
    */
   asObservable(): Observable<T> {
-    const observable: any = new Observable<T>();
-    observable.source = this;
-    return observable;
+    return new SubjectObservable<T>(this);
+  }
+}
+
+/**
+ * The observable handed out by `Subject.asObservable()`. It passes subscribers straight to the
+ * subject, outside the error-catching `_trySubscribe` wrapper, exactly as the 7.x implementation
+ * did through the `source` field. In particular, subscribing to a subject that has been
+ * unsubscribed still throws `ObjectUnsubscribedError` synchronously.
+ */
+class SubjectObservable<T> extends Observable<T> {
+  constructor(private subject: Subject<T>) {
+    super();
+  }
+
+  /** @internal */
+  protected _trySubscribe(subscriber: Subscriber<T>): TeardownLogic {
+    return this.subject.subscribe(subscriber);
   }
 }
 
@@ -160,10 +167,10 @@ export class AnonymousSubject<T> extends Subject<T> {
   constructor(
     /** @deprecated Internal implementation detail, do not use directly. Will be made internal in v8. */
     public destination?: Observer<T>,
-    source?: Observable<T>
+    /** @deprecated Internal implementation detail, do not use directly. Will be made internal in v8. */
+    public source?: Observable<T>
   ) {
     super();
-    this.source = source;
   }
 
   next(value: T) {
@@ -179,6 +186,13 @@ export class AnonymousSubject<T> extends Subject<T> {
   }
 
   /** @internal */
+  /** @internal */
+  protected _trySubscribe(subscriber: Subscriber<T>): TeardownLogic {
+    // 7.x routed observables that had a `source` straight to `_subscribe`, outside the
+    // error-catching wrapper, so a source that throws synchronously keeps throwing synchronously.
+    return this.source ? this._subscribe(subscriber) : super._trySubscribe(subscriber);
+  }
+
   protected _subscribe(subscriber: Subscriber<T>): Subscription {
     return this.source?.subscribe(subscriber) ?? EMPTY_SUBSCRIPTION;
   }

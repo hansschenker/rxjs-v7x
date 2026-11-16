@@ -6,8 +6,7 @@ describe('index', () => {
   it('should export Observable', () => {
     expect(index.Observable).to.exist;
     expect(index.ConnectableObservable).to.exist;
-    // Interfaces can be checked by creating a variable of that type
-    let operator: index.Operator<any, any>;
+    expect(index.operate).to.exist;
   });
 
   it('should export the Subject types', () => {
