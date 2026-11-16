@@ -4,6 +4,61 @@
 [![npm version](https://badge.fury.io/js/rxjs.svg)](http://badge.fury.io/js/rxjs)
 [![Join the chat at https://gitter.im/Reactive-Extensions/RxJS](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Reactive-Extensions/RxJS?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+# rxjs-v7x: RxJS 7.8.2 with the RxJS 8 `operate()`, without `lift`
+
+This repository is [RxJS 7.8.2](https://github.com/ReactiveX/rxjs/tree/7.8.2) with one change
+taken from RxJS 8 and nothing else: operators are built with the v8 `operate()` primitive, and
+the `lift` mechanism is gone. Everything else, including `Subject`, `Subscription`,
+`SafeSubscriber`, the `config` flags and `toPromise`, is the 7.8.2 implementation.
+
+The change is three commits on top of the `7.8.2` tag:
+
+1. `feat(operate)`: `Subscriber` accepts `SubscriberOverrides` (`next`, `error`, `complete`,
+   `finalize`) as a second constructor argument, and the public `operate({ destination, ... })`
+   returns a `Subscriber` wired to `destination`. Exported from the package root together with
+   the `OperateConfig` and `SubscriberOverrides` types.
+2. `refactor(operators)`: all 69 operator implementations and the internal helpers follow the
+   v8 shape. `OperatorSubscriber` and `createOperatorSubscriber` are removed.
+3. `refactor!`: `Observable.lift`, `Observable#source`, `Observable#operator`, `Subject.lift`,
+   `WebSocketSubject.lift` and the `Operator` type are removed. `Observable.subscribe` has a
+   single path. A `Subject` piped through an operator is a plain `Observable`.
+
+An operator now looks like this:
+
+```ts
+import { Observable, OperatorFunction, operate } from 'rxjs';
+
+export function map<T, R>(project: (value: T, index: number) => R): OperatorFunction<T, R> {
+  return (source) =>
+    new Observable((destination) => {
+      let index = 0;
+      source.subscribe(
+        operate({
+          destination,
+          next: (value: T) => destination.next(project(value, index++)),
+        })
+      );
+    });
+}
+```
+
+Because no operator calls `lift`, the built-in operators accept any object whose `subscribe`
+takes an observer and returns something unsubscribable, with no `from()` required.
+
+Verification on Node 24 and TypeScript 4.2.4 (the toolchain pinned by 7.8.2): `npm run compile`,
+`npm run dtslint`, `npm run lint_src`, `npm run lint_spec`, `npm run test:esm`,
+`npm run test:circular`, `npm run build:global` and `node tools/prepare-package.js` all pass.
+`npm test` with the four real-timer spec files excluded (`buffer`, `delayWhen`, `skipUntil`,
+`window`, which abort mocha on Windows timer granularity) reports 3155 passing, 4 pending and the
+two pre-existing environment failures (`ajax` asserts V8's old `JSON.parse` message, `webSocket`
+expects no global `WebSocket`). `npm run build:package` and `npm run lint` only fail on npm 11
+because of the `npm-run-all` + `config.commitizen` incompatibility inherited from 7.8.2; run their
+steps directly.
+
+The original README follows.
+
+---
+
 # The Roadmap from RxJS 7 to 8
 
 Curious what's next for RxJS? Follow along with [Issue 6367](https://github.com/ReactiveX/rxjs/issues/6367).
