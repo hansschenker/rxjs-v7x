@@ -1,6 +1,6 @@
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 import { innerFrom } from '../observable/innerFrom';
 import { noop } from '../util/noop';
 
@@ -50,20 +50,26 @@ import { noop } from '../util/noop';
  * remaining items.
  */
 export function skipUntil<T>(notifier: ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return operate((source, subscriber) => {
-    let taking = false;
+  return (source) =>
+    new Observable((destination) => {
+      let taking = false;
 
-    const skipSubscriber = createOperatorSubscriber(
-      subscriber,
-      () => {
-        skipSubscriber?.unsubscribe();
-        taking = true;
-      },
-      noop
-    );
+      const skipSubscriber = operate({
+        destination,
+        next: () => {
+          skipSubscriber?.unsubscribe();
+          taking = true;
+        },
+        complete: noop,
+      });
 
-    innerFrom(notifier).subscribe(skipSubscriber);
+      innerFrom(notifier).subscribe(skipSubscriber);
 
-    source.subscribe(createOperatorSubscriber(subscriber, (value) => taking && subscriber.next(value)));
-  });
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => taking && destination.next(value),
+        })
+      );
+    });
 }

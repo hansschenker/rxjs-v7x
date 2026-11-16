@@ -3,7 +3,7 @@ import { ObservableInputTuple } from '../types';
 import { innerFrom } from './innerFrom';
 import { argsOrArgArray } from '../util/argsOrArgArray';
 import { EMPTY } from './empty';
-import { createOperatorSubscriber } from '../operators/OperatorSubscriber';
+import { operate } from '../operate';
 import { popResultSelector } from '../util/args';
 
 export function zip<A extends readonly unknown[]>(sources: [...ObservableInputTuple<A>]): Observable<A>;
@@ -76,9 +76,9 @@ export function zip(...args: unknown[]): Observable<unknown> {
         // access the related buffers and completion properties
         for (let sourceIndex = 0; !subscriber.closed && sourceIndex < sources.length; sourceIndex++) {
           innerFrom(sources[sourceIndex]).subscribe(
-            createOperatorSubscriber(
-              subscriber,
-              (value) => {
+            operate({
+              destination: subscriber,
+              next: (value) => {
                 buffers[sourceIndex].push(value);
                 // if every buffer has at least one value in it, then we
                 // can shift out the oldest value from each buffer and emit
@@ -95,7 +95,7 @@ export function zip(...args: unknown[]): Observable<unknown> {
                   }
                 }
               },
-              () => {
+              complete: () => {
                 // This source completed. Mark it as complete so we can check it later
                 // if we have to.
                 completed[sourceIndex] = true;
@@ -103,8 +103,8 @@ export function zip(...args: unknown[]): Observable<unknown> {
                 // can complete the result, because we can't possibly have any more
                 // values from this to zip together with the other values.
                 !buffers[sourceIndex].length && subscriber.complete();
-              }
-            )
+              },
+            })
           );
         }
 

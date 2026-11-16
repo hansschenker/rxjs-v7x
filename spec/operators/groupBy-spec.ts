@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { groupBy, delay, tap, map, take, mergeMap, materialize, skip, ignoreElements } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
-import { ReplaySubject, of, Observable, Operator, Observer, Subject } from 'rxjs';
+import { ReplaySubject, of, Observable, Observer, Subject } from 'rxjs';
 import { createNotification } from 'rxjs/internal/NotificationFactories';
 import { observableMatcher } from '../helpers/observableMatcher';
 
@@ -1460,53 +1460,6 @@ describe('groupBy operator', () => {
       // Our two groups should error immediately upon subscription.
       expectObservable(subjects.a).toBe('-');
       expectObservable(subjects.b).toBe('-');
-    });
-  });
-
-  it('should not break lift() composability', (done) => {
-    class MyCustomObservable<T> extends Observable<T> {
-      lift<R>(operator: Operator<T, R>): Observable<R> {
-        const observable = new MyCustomObservable<R>();
-        (<any>observable).source = this;
-        (<any>observable).operator = operator;
-        return observable;
-      }
-    }
-
-    const result = new MyCustomObservable((observer: Observer<number>) => {
-      observer.next(1);
-      observer.next(2);
-      observer.next(3);
-      observer.complete();
-    }).pipe(
-      groupBy(
-        (x: number) => x % 2,
-        (x: number) => x + '!'
-      )
-    );
-
-    expect(result instanceof MyCustomObservable).to.be.true;
-
-    const expectedGroups = [
-      { key: 1, values: ['1!', '3!'] },
-      { key: 0, values: ['2!'] },
-    ];
-
-    result.subscribe({
-      next: (g: any) => {
-        const expectedGroup = expectedGroups.shift()!;
-        expect(g.key).to.equal(expectedGroup.key);
-
-        g.subscribe((x: any) => {
-          expect(x).to.deep.equal(expectedGroup.values.shift());
-        });
-      },
-      error: (x) => {
-        done(new Error('should not be called'));
-      },
-      complete: () => {
-        done();
-      },
     });
   });
 

@@ -1,8 +1,8 @@
 import { Subscription } from '../Subscription';
 import { EMPTY } from '../observable/empty';
-import { operate } from '../util/lift';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { createOperatorSubscriber } from './OperatorSubscriber';
 import { innerFrom } from '../observable/innerFrom';
 import { timer } from '../observable/timer';
 
@@ -127,46 +127,53 @@ export function repeat<T>(countOrConfig?: number | RepeatConfig): MonoTypeOperat
 
   return count <= 0
     ? () => EMPTY
-    : operate((source, subscriber) => {
-        let soFar = 0;
-        let sourceSub: Subscription | null;
+    : (source) =>
+        new Observable((destination) => {
+          let soFar = 0;
+          let sourceSub: Subscription | null;
 
-        const resubscribe = () => {
-          sourceSub?.unsubscribe();
-          sourceSub = null;
-          if (delay != null) {
-            const notifier = typeof delay === 'number' ? timer(delay) : innerFrom(delay(soFar));
-            const notifierSubscriber = createOperatorSubscriber(subscriber, () => {
-              notifierSubscriber.unsubscribe();
+          const resubscribe = () => {
+            sourceSub?.unsubscribe();
+            sourceSub = null;
+            if (delay != null) {
+              const notifier = typeof delay === 'number' ? timer(delay) : innerFrom(delay(soFar));
+              const notifierSubscriber = operate({
+                destination,
+                next: () => {
+                  notifierSubscriber.unsubscribe();
+                  subscribeToSource();
+                },
+              });
+              notifier.subscribe(notifierSubscriber);
+            } else {
               subscribeToSource();
-            });
-            notifier.subscribe(notifierSubscriber);
-          } else {
-            subscribeToSource();
-          }
-        };
+            }
+          };
 
-        const subscribeToSource = () => {
-          let syncUnsub = false;
-          sourceSub = source.subscribe(
-            createOperatorSubscriber(subscriber, undefined, () => {
-              if (++soFar < count) {
-                if (sourceSub) {
-                  resubscribe();
-                } else {
-                  syncUnsub = true;
-                }
-              } else {
-                subscriber.complete();
-              }
-            })
-          );
+          const subscribeToSource = () => {
+            let syncUnsub = false;
+            sourceSub = source.subscribe(
+              operate({
+                destination,
+                complete: () => {
+                  if (++soFar < count) {
+                    if (sourceSub) {
+                      resubscribe();
+                    } else {
+                      syncUnsub = true;
+                    }
+                  } else {
+                    destination.complete();
+                  }
+                },
+              })
+            );
 
-          if (syncUnsub) {
-            resubscribe();
-          }
-        };
+            if (syncUnsub) {
+              resubscribe();
+            }
+          };
 
-        subscribeToSource();
-      });
+          subscribeToSource();
+        });
 }

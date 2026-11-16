@@ -56,6 +56,8 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
   /** @internal */
   _nextOverride: ((value: any) => void) | null = null;
   /** @internal */
+  _overrideDestination: Subscriber<any> | Observer<any> | null = null;
+  /** @internal */
   _errorOverride: ((err: any) => void) | null = null;
   /** @internal */
   _completeOverride: (() => void) | null = null;
@@ -85,6 +87,7 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
     this._errorOverride = overrides?.error ?? null;
     this._completeOverride = overrides?.complete ?? null;
     this._onFinalize = overrides?.finalize ?? null;
+    this._overrideDestination = overrides ? this.destination : null;
 
     // It's important - for performance reasons - that all of this class's
     // members are initialized and that they are always initialized in the same
@@ -185,7 +188,7 @@ function overrideNext<T>(this: Subscriber<T>, value: T): void {
   try {
     this._nextOverride!(value);
   } catch (error) {
-    this.destination.error(error);
+    this._overrideDestination!.error(error);
   }
 }
 
@@ -193,7 +196,7 @@ function overrideError(this: Subscriber<unknown>, err: any): void {
   try {
     this._errorOverride!(err);
   } catch (error) {
-    this.destination.error(error);
+    this._overrideDestination!.error(error);
   } finally {
     this.unsubscribe();
   }
@@ -203,7 +206,7 @@ function overrideComplete(this: Subscriber<unknown>): void {
   try {
     this._completeOverride!();
   } catch (error) {
-    this.destination.error(error);
+    this._overrideDestination!.error(error);
   } finally {
     this.unsubscribe();
   }

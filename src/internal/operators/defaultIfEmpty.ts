@@ -1,6 +1,6 @@
 import { OperatorFunction } from '../types';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 
 /**
  * Emits a given value if the source Observable completes without emitting any
@@ -38,22 +38,23 @@ import { createOperatorSubscriber } from './OperatorSubscriber';
  * values emitted by the source Observable.
  */
 export function defaultIfEmpty<T, R>(defaultValue: R): OperatorFunction<T, T | R> {
-  return operate((source, subscriber) => {
-    let hasValue = false;
-    source.subscribe(
-      createOperatorSubscriber(
-        subscriber,
-        (value) => {
-          hasValue = true;
-          subscriber.next(value);
-        },
-        () => {
-          if (!hasValue) {
-            subscriber.next(defaultValue!);
-          }
-          subscriber.complete();
-        }
-      )
-    );
-  });
+  return (source) =>
+    new Observable((destination) => {
+      let hasValue = false;
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            hasValue = true;
+            destination.next(value);
+          },
+          complete: () => {
+            if (!hasValue) {
+              destination.next(defaultValue!);
+            }
+            destination.complete();
+          },
+        })
+      );
+    });
 }

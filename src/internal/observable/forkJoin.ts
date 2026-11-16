@@ -3,7 +3,7 @@ import { ObservedValueOf, ObservableInputTuple, ObservableInput } from '../types
 import { argsArgArrayOrObject } from '../util/argsArgArrayOrObject';
 import { innerFrom } from './innerFrom';
 import { popResultSelector } from '../util/args';
-import { createOperatorSubscriber } from '../operators/OperatorSubscriber';
+import { operate } from '../operate';
 import { mapOneOrManyArgs } from '../util/mapOneOrManyArgs';
 import { createObject } from '../util/createObject';
 import { AnyCatcher } from '../AnyCatcher';
@@ -157,26 +157,25 @@ export function forkJoin(...args: any[]): Observable<any> {
     for (let sourceIndex = 0; sourceIndex < length; sourceIndex++) {
       let hasValue = false;
       innerFrom(sources[sourceIndex]).subscribe(
-        createOperatorSubscriber(
-          subscriber,
-          (value) => {
+        operate({
+          destination: subscriber,
+          next: (value) => {
             if (!hasValue) {
               hasValue = true;
               remainingEmissions--;
             }
             values[sourceIndex] = value;
           },
-          () => remainingCompletions--,
-          undefined,
-          () => {
+          complete: () => remainingCompletions--,
+          finalize: () => {
             if (!remainingCompletions || !hasValue) {
               if (!remainingEmissions) {
                 subscriber.next(keys ? createObject(keys, values) : values);
               }
               subscriber.complete();
             }
-          }
-        )
+          },
+        })
       );
     }
   });

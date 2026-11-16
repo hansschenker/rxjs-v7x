@@ -1,8 +1,8 @@
 import { innerFrom } from '../observable/innerFrom';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../util/lift';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 import { noop } from '../util/noop';
-import { createOperatorSubscriber } from './OperatorSubscriber';
 
 /**
  * Emits the most recently emitted value from the source Observable whenever
@@ -45,28 +45,32 @@ import { createOperatorSubscriber } from './OperatorSubscriber';
  * Observable emits value or completes.
  */
 export function sample<T>(notifier: ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return operate((source, subscriber) => {
-    let hasValue = false;
-    let lastValue: T | null = null;
-    source.subscribe(
-      createOperatorSubscriber(subscriber, (value) => {
-        hasValue = true;
-        lastValue = value;
-      })
-    );
-    innerFrom(notifier).subscribe(
-      createOperatorSubscriber(
-        subscriber,
-        () => {
-          if (hasValue) {
-            hasValue = false;
-            const value = lastValue!;
-            lastValue = null;
-            subscriber.next(value);
-          }
-        },
-        noop
-      )
-    );
-  });
+  return (source) =>
+    new Observable((destination) => {
+      let hasValue = false;
+      let lastValue: T | null = null;
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            hasValue = true;
+            lastValue = value;
+          },
+        })
+      );
+      innerFrom(notifier).subscribe(
+        operate({
+          destination,
+          next: () => {
+            if (hasValue) {
+              hasValue = false;
+              const value = lastValue!;
+              lastValue = null;
+              destination.next(value);
+            }
+          },
+          complete: noop,
+        })
+      );
+    });
 }

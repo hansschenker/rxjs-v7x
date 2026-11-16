@@ -3,7 +3,7 @@ import { Subject } from '../Subject';
 import { SafeSubscriber } from '../Subscriber';
 import { Subscription } from '../Subscription';
 import { MonoTypeOperatorFunction, SubjectLike, ObservableInput } from '../types';
-import { operate } from '../util/lift';
+import { Observable } from '../Observable';
 
 export interface ShareConfig<T> {
   /**
@@ -177,7 +177,7 @@ export function share<T>(options: ShareConfig<T> = {}): MonoTypeOperatorFunction
       conn?.unsubscribe();
     };
 
-    return operate<T, T>((source, subscriber) => {
+    return new Observable<T>((destination) => {
       refCount++;
       if (!hasErrored && !hasCompleted) {
         cancelReset();
@@ -194,7 +194,7 @@ export function share<T>(options: ShareConfig<T> = {}): MonoTypeOperatorFunction
       // up _before_ the subscription to the source occurs. This is done so that
       // the assignment to the source connection's `closed` property will be seen
       // by synchronous firehose sources.
-      subscriber.add(() => {
+      destination.add(() => {
         refCount--;
 
         // If we're resetting on refCount === 0, and it's 0, we only want to do
@@ -207,7 +207,7 @@ export function share<T>(options: ShareConfig<T> = {}): MonoTypeOperatorFunction
 
       // The following line adds the subscription to the subscriber passed.
       // Basically, `subscriber === dest.subscribe(subscriber)` is `true`.
-      dest.subscribe(subscriber);
+      dest.subscribe(destination);
 
       if (
         !connection &&
@@ -236,9 +236,9 @@ export function share<T>(options: ShareConfig<T> = {}): MonoTypeOperatorFunction
             dest.complete();
           },
         });
-        innerFrom(source).subscribe(connection);
+        innerFrom(wrapperSource).subscribe(connection);
       }
-    })(wrapperSource);
+    });
   };
 }
 

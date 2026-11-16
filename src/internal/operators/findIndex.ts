@@ -1,6 +1,5 @@
 import { Observable } from '../Observable';
 import { Falsy, OperatorFunction } from '../types';
-import { operate } from '../util/lift';
 import { createFind } from './find';
 
 export function findIndex<T>(predicate: BooleanConstructor): OperatorFunction<T, T extends Falsy ? -1 : number>;
@@ -59,5 +58,5 @@ export function findIndex<T>(
   predicate: (value: T, index: number, source: Observable<T>) => boolean,
   thisArg?: any
 ): OperatorFunction<T, number> {
-  return operate(createFind(predicate, thisArg, 'index'));
+  return (source) => new Observable((destination) => createFind(predicate, thisArg, 'index')(source, destination));
 }

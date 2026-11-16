@@ -8,7 +8,7 @@ import { Subscription } from '../Subscription';
 import { mapOneOrManyArgs } from '../util/mapOneOrManyArgs';
 import { popResultSelector, popScheduler } from '../util/args';
 import { createObject } from '../util/createObject';
-import { createOperatorSubscriber } from '../operators/OperatorSubscriber';
+import { operate } from '../operate';
 import { AnyCatcher } from '../AnyCatcher';
 import { executeSchedule } from '../util/executeSchedule';
 
@@ -252,9 +252,9 @@ export function combineLatestInit(
               const source = from(observables[i], scheduler as any);
               let hasFirstValue = false;
               source.subscribe(
-                createOperatorSubscriber(
-                  subscriber,
-                  (value) => {
+                operate({
+                  destination: subscriber,
+                  next: (value) => {
                     // When we get a value, record it in our set of values.
                     values[i] = value;
                     if (!hasFirstValue) {
@@ -268,14 +268,14 @@ export function combineLatestInit(
                       subscriber.next(valueTransform(values.slice()));
                     }
                   },
-                  () => {
+                  complete: () => {
                     if (!--active) {
                       // We only complete the result if we have no more active
                       // inner observables.
                       subscriber.complete();
                     }
-                  }
-                )
+                  },
+                })
               );
             },
             subscriber

@@ -1,8 +1,8 @@
 import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction } from '../types';
-import { operate } from '../util/lift';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 import { noop } from '../util/noop';
-import { createOperatorSubscriber } from './OperatorSubscriber';
 import { innerFrom } from '../observable/innerFrom';
 
 /**
@@ -44,51 +44,57 @@ import { innerFrom } from '../observable/innerFrom';
  * @return A function that returns an Observable of arrays of buffered values.
  */
 export function bufferWhen<T>(closingSelector: () => ObservableInput<any>): OperatorFunction<T, T[]> {
-  return operate((source, subscriber) => {
-    // The buffer we keep and emit.
-    let buffer: T[] | null = null;
-    // A reference to the subscriber used to subscribe to
-    // the closing notifier. We need to hold this so we can
-    // end the subscription after the first notification.
-    let closingSubscriber: Subscriber<T> | null = null;
+  return (source) =>
+    new Observable((destination) => {
+      // The buffer we keep and emit.
+      let buffer: T[] | null = null;
+      // A reference to the subscriber used to subscribe to
+      // the closing notifier. We need to hold this so we can
+      // end the subscription after the first notification.
+      let closingSubscriber: Subscriber<T> | null = null;
 
-    // Ends the previous closing notifier subscription, so it
-    // terminates after the first emission, then emits
-    // the current buffer  if there is one, starts a new buffer, and starts a
-    // new closing notifier.
-    const openBuffer = () => {
-      // Make sure to finalize the closing subscription, we only cared
-      // about one notification.
-      closingSubscriber?.unsubscribe();
-      // emit the buffer if we have one, and start a new buffer.
-      const b = buffer;
-      buffer = [];
-      b && subscriber.next(b);
+      // Ends the previous closing notifier subscription, so it
+      // terminates after the first emission, then emits
+      // the current buffer  if there is one, starts a new buffer, and starts a
+      // new closing notifier.
+      const openBuffer = () => {
+        // Make sure to finalize the closing subscription, we only cared
+        // about one notification.
+        closingSubscriber?.unsubscribe();
+        // emit the buffer if we have one, and start a new buffer.
+        const b = buffer;
+        buffer = [];
+        b && destination.next(b);
 
-      // Get a new closing notifier and subscribe to it.
-      innerFrom(closingSelector()).subscribe((closingSubscriber = createOperatorSubscriber(subscriber, openBuffer, noop)));
-    };
+        // Get a new closing notifier and subscribe to it.
+        innerFrom(closingSelector()).subscribe(
+          (closingSubscriber = operate({
+            destination,
+            next: openBuffer,
+            complete: noop,
+          }))
+        );
+      };
 
-    // Start the first buffer.
-    openBuffer();
+      // Start the first buffer.
+      openBuffer();
 
-    // Subscribe to our source.
-    source.subscribe(
-      createOperatorSubscriber(
-        subscriber,
-        // Add every new value to the current buffer.
-        (value) => buffer?.push(value),
-        // When we complete, emit the buffer if we have one,
-        // then complete the result.
-        () => {
-          buffer && subscriber.next(buffer);
-          subscriber.complete();
-        },
-        // Pass all errors through to consumer.
-        undefined,
-        // Release memory on finalization
-        () => (buffer = closingSubscriber = null!)
-      )
-    );
-  });
+      // Subscribe to our source.
+      source.subscribe(
+        operate({
+          destination,
+          // Add every new value to the current buffer.
+          next: (value) => buffer?.push(value),
+          // When we complete, emit the buffer if we have one,
+          complete:
+            // then complete the result.
+            () => {
+              buffer && destination.next(buffer);
+              destination.complete();
+            },
+          // Release memory on finalization
+          finalize: () => (buffer = closingSubscriber = null!),
+        })
+      );
+    });
 }

@@ -2,7 +2,6 @@ import { OperatorFunction, ObservableInput, ObservedValueOf, SubjectLike } from 
 import { Observable } from '../Observable';
 import { Subject } from '../Subject';
 import { innerFrom } from '../observable/innerFrom';
-import { operate } from '../util/lift';
 import { fromSubscribable } from '../observable/fromSubscribable';
 
 /**
@@ -101,9 +100,10 @@ export function connect<T, O extends ObservableInput<unknown>>(
   config: ConnectConfig<T> = DEFAULT_CONFIG
 ): OperatorFunction<T, ObservedValueOf<O>> {
   const { connector } = config;
-  return operate((source, subscriber) => {
-    const subject = connector();
-    innerFrom(selector(fromSubscribable(subject))).subscribe(subscriber);
-    subscriber.add(source.subscribe(subject));
-  });
+  return (source) =>
+    new Observable((destination) => {
+      const subject = connector();
+      innerFrom(selector(fromSubscribable(subject))).subscribe(destination);
+      destination.add(source.subscribe(subject));
+    });
 }

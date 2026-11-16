@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { shareReplay, mergeMapTo, retry, take } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
-import { Observable, Operator, Observer, of, from, defer, pipe, combineLatest, firstValueFrom, BehaviorSubject } from 'rxjs';
+import { Observable, of, from, defer, pipe, combineLatest, firstValueFrom, BehaviorSubject } from 'rxjs';
 import { observableMatcher } from '../helpers/observableMatcher';
 
 /** @test {shareReplay} */
@@ -302,41 +302,6 @@ describe('shareReplay', () => {
       expectObservable(shared, sub1).toBe(expected1);
       expectObservable(shared, sub2).toBe(expected2);
       expectSubscriptions(source.subscriptions).toBe(sourceSubs);
-    });
-  });
-
-  it('should not break lift() composability', (done) => {
-    class MyCustomObservable<T> extends Observable<T> {
-      lift<R>(operator: Operator<T, R>): Observable<R> {
-        const observable = new MyCustomObservable<R>();
-        (<any>observable).source = this;
-        (<any>observable).operator = operator;
-        return observable;
-      }
-    }
-
-    const result = new MyCustomObservable((observer: Observer<number>) => {
-      observer.next(1);
-      observer.next(2);
-      observer.next(3);
-      observer.complete();
-    }).pipe(shareReplay());
-
-    expect(result instanceof MyCustomObservable).to.be.true;
-
-    const expected = [1, 2, 3];
-
-    result.subscribe({
-      next(n: any) {
-        expect(expected.length).to.be.greaterThan(0);
-        expect(n).to.equal(expected.shift());
-      },
-      error() {
-        done(new Error('should not be called'));
-      },
-      complete() {
-        done();
-      },
     });
   });
 

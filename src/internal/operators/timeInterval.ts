@@ -1,7 +1,7 @@
 import { asyncScheduler } from '../scheduler/async';
 import { SchedulerLike, OperatorFunction } from '../types';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 
 /**
  * Emits an object containing the current value, and the time that has
@@ -43,17 +43,21 @@ import { createOperatorSubscriber } from './OperatorSubscriber';
  * value and interval.
  */
 export function timeInterval<T>(scheduler: SchedulerLike = asyncScheduler): OperatorFunction<T, TimeInterval<T>> {
-  return operate((source, subscriber) => {
-    let last = scheduler.now();
-    source.subscribe(
-      createOperatorSubscriber(subscriber, (value) => {
-        const now = scheduler.now();
-        const interval = now - last;
-        last = now;
-        subscriber.next(new TimeInterval(value, interval));
-      })
-    );
-  });
+  return (source) =>
+    new Observable((destination) => {
+      let last = scheduler.now();
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            const now = scheduler.now();
+            const interval = now - last;
+            last = now;
+            destination.next(new TimeInterval(value, interval));
+          },
+        })
+      );
+    });
 }
 
 // TODO(benlesh): make this an interface, export the interface, but not the implemented class,

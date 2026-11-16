@@ -1,7 +1,7 @@
 import { MonoTypeOperatorFunction } from '../types';
 import { EMPTY } from '../observable/empty';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 
 /**
  * Emits only the first `count` values emitted by the source Observable.
@@ -49,23 +49,27 @@ export function take<T>(count: number): MonoTypeOperatorFunction<T> {
   return count <= 0
     ? // If we are taking no values, that's empty.
       () => EMPTY
-    : operate((source, subscriber) => {
-        let seen = 0;
-        source.subscribe(
-          createOperatorSubscriber(subscriber, (value) => {
-            // Increment the number of values we have seen,
-            // then check it against the allowed count to see
-            // if we are still letting values through.
-            if (++seen <= count) {
-              subscriber.next(value);
-              // If we have met or passed our allowed count,
-              // we need to complete. We have to do <= here,
-              // because re-entrant code will increment `seen` twice.
-              if (count <= seen) {
-                subscriber.complete();
-              }
-            }
-          })
-        );
-      });
+    : (source) =>
+        new Observable((destination) => {
+          let seen = 0;
+          source.subscribe(
+            operate({
+              destination,
+              next: (value) => {
+                // Increment the number of values we have seen,
+                // then check it against the allowed count to see
+                // if we are still letting values through.
+                if (++seen <= count) {
+                  destination.next(value);
+                  // If we have met or passed our allowed count,
+                  // we need to complete. We have to do <= here,
+                  // because re-entrant code will increment `seen` twice.
+                  if (count <= seen) {
+                    destination.complete();
+                  }
+                }
+              },
+            })
+          );
+        });
 }

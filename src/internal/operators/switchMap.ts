@@ -1,8 +1,8 @@
 import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { innerFrom } from '../observable/innerFrom';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 
 /* tslint:disable:max-line-length */
 export function switchMap<T, O extends ObservableInput<any>>(
@@ -86,47 +86,50 @@ export function switchMap<T, R, O extends ObservableInput<any>>(
   project: (value: T, index: number) => O,
   resultSelector?: (outerValue: T, innerValue: ObservedValueOf<O>, outerIndex: number, innerIndex: number) => R
 ): OperatorFunction<T, ObservedValueOf<O> | R> {
-  return operate((source, subscriber) => {
-    let innerSubscriber: Subscriber<ObservedValueOf<O>> | null = null;
-    let index = 0;
-    // Whether or not the source subscription has completed
-    let isComplete = false;
+  return (source) =>
+    new Observable((destination) => {
+      let innerSubscriber: Subscriber<ObservedValueOf<O>> | null = null;
+      let index = 0;
+      // Whether or not the source subscription has completed
+      let isComplete = false;
 
-    // We only complete the result if the source is complete AND we don't have an active inner subscription.
-    // This is called both when the source completes and when the inners complete.
-    const checkComplete = () => isComplete && !innerSubscriber && subscriber.complete();
+      // We only complete the result if the source is complete AND we don't have an active inner subscription.
+      // This is called both when the source completes and when the inners complete.
+      const checkComplete = () => isComplete && !innerSubscriber && destination.complete();
 
-    source.subscribe(
-      createOperatorSubscriber(
-        subscriber,
-        (value) => {
-          // Cancel the previous inner subscription if there was one
-          innerSubscriber?.unsubscribe();
-          let innerIndex = 0;
-          const outerIndex = index++;
-          // Start the next inner subscription
-          innerFrom(project(value, outerIndex)).subscribe(
-            (innerSubscriber = createOperatorSubscriber(
-              subscriber,
-              // When we get a new inner value, next it through. Note that this is
-              // handling the deprecate result selector here. This is because with this architecture
-              // it ends up being smaller than using the map operator.
-              (innerValue) => subscriber.next(resultSelector ? resultSelector(value, innerValue, outerIndex, innerIndex++) : innerValue),
-              () => {
-                // The inner has completed. Null out the inner subscriber to
-                // free up memory and to signal that we have no inner subscription
-                // currently.
-                innerSubscriber = null!;
-                checkComplete();
-              }
-            ))
-          );
-        },
-        () => {
-          isComplete = true;
-          checkComplete();
-        }
-      )
-    );
-  });
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            // Cancel the previous inner subscription if there was one
+            innerSubscriber?.unsubscribe();
+            let innerIndex = 0;
+            const outerIndex = index++;
+            // Start the next inner subscription
+            innerFrom(project(value, outerIndex)).subscribe(
+              (innerSubscriber = operate({
+                destination,
+                // When we get a new inner value, next it through. Note that this is
+                next:
+                  // handling the deprecate result selector here. This is because with this architecture
+                  // it ends up being smaller than using the map operator.
+                  (innerValue) =>
+                    destination.next(resultSelector ? resultSelector(value, innerValue, outerIndex, innerIndex++) : innerValue),
+                complete: () => {
+                  // The inner has completed. Null out the inner subscriber to
+                  // free up memory and to signal that we have no inner subscription
+                  // currently.
+                  innerSubscriber = null!;
+                  checkComplete();
+                },
+              }))
+            );
+          },
+          complete: () => {
+            isComplete = true;
+            checkComplete();
+          },
+        })
+      );
+    });
 }

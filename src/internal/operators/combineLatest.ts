@@ -1,6 +1,6 @@
 import { combineLatestInit } from '../observable/combineLatest';
 import { ObservableInput, ObservableInputTuple, OperatorFunction } from '../types';
-import { operate } from '../util/lift';
+import { Observable } from '../Observable';
 import { argsOrArgArray } from '../util/argsOrArgArray';
 import { mapOneOrManyArgs } from '../util/mapOneOrManyArgs';
 import { pipe } from '../util/pipe';
@@ -28,7 +28,8 @@ export function combineLatest<T, R>(...args: (ObservableInput<any> | ((...values
   const resultSelector = popResultSelector(args);
   return resultSelector
     ? pipe(combineLatest(...(args as Array<ObservableInput<any>>)), mapOneOrManyArgs(resultSelector))
-    : operate((source, subscriber) => {
-        combineLatestInit([source, ...argsOrArgArray(args)])(subscriber);
-      });
+    : (source) =>
+        new Observable((destination) => {
+          combineLatestInit([source, ...argsOrArgArray(args)])(destination);
+        });
 }

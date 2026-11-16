@@ -235,7 +235,11 @@ describe('operate', () => {
       subscribe(observer: { next: (value: number) => void; complete: () => void }) {
         observer.next(21);
         observer.complete();
-        return { unsubscribe() {} };
+        return {
+          unsubscribe() {
+            /* noop */
+          },
+        };
       },
     };
     const results: any[] = [];

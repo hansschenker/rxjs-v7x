@@ -3,7 +3,7 @@ import { innerFrom } from './innerFrom';
 import { Subscription } from '../Subscription';
 import { ObservableInput, ObservableInputTuple } from '../types';
 import { argsOrArgArray } from '../util/argsOrArgArray';
-import { createOperatorSubscriber } from '../operators/OperatorSubscriber';
+import { operate } from '../operate';
 import { Subscriber } from '../Subscriber';
 
 export function race<T extends readonly unknown[]>(inputs: [...ObservableInputTuple<T>]): Observable<T[number]>;
@@ -70,16 +70,19 @@ export function raceInit<T>(sources: ObservableInput<T>[]) {
     for (let i = 0; subscriptions && !subscriber.closed && i < sources.length; i++) {
       subscriptions.push(
         innerFrom(sources[i] as ObservableInput<T>).subscribe(
-          createOperatorSubscriber(subscriber, (value) => {
-            if (subscriptions) {
-              // We're still racing, but we won! So unsubscribe
-              // all other subscriptions that we have, except this one.
-              for (let s = 0; s < subscriptions.length; s++) {
-                s !== i && subscriptions[s].unsubscribe();
+          operate({
+            destination: subscriber,
+            next: (value) => {
+              if (subscriptions) {
+                // We're still racing, but we won! So unsubscribe
+                // all other subscriptions that we have, except this one.
+                for (let s = 0; s < subscriptions.length; s++) {
+                  s !== i && subscriptions[s].unsubscribe();
+                }
+                subscriptions = null!;
               }
-              subscriptions = null!;
-            }
-            subscriber.next(value);
+              subscriber.next(value);
+            },
           })
         )
       );

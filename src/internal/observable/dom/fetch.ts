@@ -1,4 +1,4 @@
-import { createOperatorSubscriber } from '../../operators/OperatorSubscriber';
+import { operate } from '../../operate';
 import { Observable } from '../../Observable';
 import { innerFrom } from '../../observable/innerFrom';
 import { ObservableInput } from '../../types';
@@ -151,17 +151,15 @@ export function fromFetch<T>(
           // Note that any error that comes from our selector will be
           // sent to the promise `catch` below and handled.
           innerFrom(selector(response)).subscribe(
-            createOperatorSubscriber(
-              subscriber,
-              // Values are passed through to the subscriber
-              undefined,
+            operate({
+              destination: subscriber,
               // The projected response is complete.
-              () => {
+              complete: () => {
                 abortable = false;
                 subscriber.complete();
               },
-              handleError
-            )
+              error: handleError,
+            })
           );
         } else {
           abortable = false;

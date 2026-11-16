@@ -1,5 +1,5 @@
 import { OperatorFunction } from '../types';
-import { operate } from '../util/lift';
+import { Observable } from '../Observable';
 import { scanInternals } from './scanInternals';
 
 export function scan<V, A = V>(accumulator: (acc: A | V, value: V, index: number) => A): OperatorFunction<V, V | A>;
@@ -91,5 +91,6 @@ export function scan<V, A, S>(accumulator: (acc: V | A | S, value: V, index: num
   // For this reason, we have to check it here at the original call site
   // otherwise inside Operator/Subscriber we won't know if `undefined`
   // means they didn't provide anything or if they literally provided `undefined`
-  return operate(scanInternals(accumulator, seed as S, arguments.length >= 2, true));
+  const run = scanInternals(accumulator, seed as S, arguments.length >= 2, true);
+  return (source) => new Observable((destination) => run(source, destination));
 }

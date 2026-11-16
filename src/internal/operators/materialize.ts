@@ -1,7 +1,7 @@
 import { Notification } from '../Notification';
 import { OperatorFunction, ObservableNotification } from '../types';
-import { operate } from '../util/lift';
-import { createOperatorSubscriber } from './OperatorSubscriber';
+import { operate } from '../operate';
+import { Observable } from '../Observable';
 
 /**
  * Represents all of the notifications from the source Observable as `next`
@@ -52,22 +52,23 @@ import { createOperatorSubscriber } from './OperatorSubscriber';
  * source Observable with metadata.
  */
 export function materialize<T>(): OperatorFunction<T, Notification<T> & ObservableNotification<T>> {
-  return operate((source, subscriber) => {
-    source.subscribe(
-      createOperatorSubscriber(
-        subscriber,
-        (value) => {
-          subscriber.next(Notification.createNext(value));
-        },
-        () => {
-          subscriber.next(Notification.createComplete());
-          subscriber.complete();
-        },
-        (err) => {
-          subscriber.next(Notification.createError(err));
-          subscriber.complete();
-        }
-      )
-    );
-  });
+  return (source) =>
+    new Observable((destination) => {
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            destination.next(Notification.createNext(value));
+          },
+          complete: () => {
+            destination.next(Notification.createComplete());
+            destination.complete();
+          },
+          error: (err) => {
+            destination.next(Notification.createError(err));
+            destination.complete();
+          },
+        })
+      );
+    });
 }
