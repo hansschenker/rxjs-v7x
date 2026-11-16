@@ -9,6 +9,19 @@ import { timeoutProvider } from './scheduler/timeoutProvider';
 import { captureError } from './util/errorContext';
 
 /**
+ * Per-notification behaviour that can replace the defaults of a {@link Subscriber}.
+ * This is what {@link operate} feeds into the {@link Subscriber} it creates. Any error
+ * thrown inside `next`, `error` or `complete` is routed to the destination's `error`.
+ * `finalize` runs exactly once, after the subscriber has been unsubscribed.
+ */
+export interface SubscriberOverrides<T> {
+  next?: (value: T) => void;
+  error?: (err: any) => void;
+  complete?: () => void;
+  finalize?: () => void;
+}
+
+/**
  * Implements the {@link Observer} interface and extends the
  * {@link Subscription} class. While the {@link Observer} is the public API for
  * consuming the values of an {@link Observable}, all Observers get converted to
@@ -40,11 +53,22 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
   /** @deprecated Internal implementation detail, do not use directly. Will be made internal in v8. */
   protected destination: Subscriber<any> | Observer<any>; // this `any` is the escape hatch to erase extra type param (e.g. R)
 
+  /** @internal */
+  _nextOverride: ((value: any) => void) | null = null;
+  /** @internal */
+  _errorOverride: ((err: any) => void) | null = null;
+  /** @internal */
+  _completeOverride: (() => void) | null = null;
+  /** @internal */
+  _onFinalize: (() => void) | null = null;
+
   /**
    * @deprecated Internal implementation detail, do not use directly. Will be made internal in v8.
    * There is no reason to directly create an instance of Subscriber. This type is exported for typings reasons.
    */
-  constructor(destination?: Subscriber<any> | Observer<any>) {
+  constructor(destination?: Subscriber<any> | Observer<any>);
+  constructor(destination: Subscriber<any> | Observer<any>, overrides: SubscriberOverrides<any>);
+  constructor(destination?: Subscriber<any> | Observer<any>, overrides?: SubscriberOverrides<any>) {
     super();
     if (destination) {
       this.destination = destination;
@@ -56,6 +80,27 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
     } else {
       this.destination = EMPTY_OBSERVER;
     }
+
+    this._nextOverride = overrides?.next ?? null;
+    this._errorOverride = overrides?.error ?? null;
+    this._completeOverride = overrides?.complete ?? null;
+    this._onFinalize = overrides?.finalize ?? null;
+
+    // It's important - for performance reasons - that all of this class's
+    // members are initialized and that they are always initialized in the same
+    // order. This will ensure that all Subscriber instances have the
+    // same hidden class in V8. This, in turn, will help keep the number of
+    // hidden classes involved in property accesses within the base class as
+    // low as possible. If the number of hidden classes involved exceeds four,
+    // the property accesses will become megamorphic and performance penalties
+    // will be incurred - i.e. inline caches won't be used.
+    //
+    // The reasons for ensuring all instances have the same hidden class are
+    // further discussed in this blog post from Benedikt Meurer:
+    // https://benediktmeurer.de/2018/03/23/impact-of-polymorphism-on-component-based-frameworks-like-react/
+    this._next = this._nextOverride ? overrideNext : this._next;
+    this._error = this._errorOverride ? overrideError : this._error;
+    this._complete = this._completeOverride ? overrideComplete : this._complete;
   }
 
   /**
@@ -106,6 +151,7 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
       this.isStopped = true;
       super.unsubscribe();
       this.destination = null!;
+      this._onFinalize?.();
     }
   }
 
@@ -135,6 +181,34 @@ export class Subscriber<T> extends Subscription implements Observer<T> {
  * compatibility with monoid libraries that tend to use a method named
  * `bind`. In particular, a library called Monio requires this.
  */
+function overrideNext<T>(this: Subscriber<T>, value: T): void {
+  try {
+    this._nextOverride!(value);
+  } catch (error) {
+    this.destination.error(error);
+  }
+}
+
+function overrideError(this: Subscriber<unknown>, err: any): void {
+  try {
+    this._errorOverride!(err);
+  } catch (error) {
+    this.destination.error(error);
+  } finally {
+    this.unsubscribe();
+  }
+}
+
+function overrideComplete(this: Subscriber<unknown>): void {
+  try {
+    this._completeOverride!();
+  } catch (error) {
+    this.destination.error(error);
+  } finally {
+    this.unsubscribe();
+  }
+}
+
 const _bind = Function.prototype.bind;
 
 function bind<Fn extends (...args: any[]) => any>(fn: Fn, thisArg: any): Fn {
