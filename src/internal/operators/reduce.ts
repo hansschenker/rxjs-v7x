@@ -58,5 +58,5 @@ export function reduce<V, A, S = A>(accumulator: (acc: A | S, value: V, index: n
  */
 export function reduce<V, A>(accumulator: (acc: V | A, value: V, index: number) => A, seed?: any): OperatorFunction<V, V | A> {
   const run = scanInternals(accumulator, seed, arguments.length >= 2, false, true);
-  return fromSource((source, destination) => run(source, destination));
+  return fromSource(run);
 }

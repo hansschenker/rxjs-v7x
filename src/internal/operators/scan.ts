@@ -92,5 +92,5 @@ export function scan<V, A, S>(accumulator: (acc: V | A | S, value: V, index: num
   // otherwise inside Operator/Subscriber we won't know if `undefined`
   // means they didn't provide anything or if they literally provided `undefined`
   const run = scanInternals(accumulator, seed as S, arguments.length >= 2, true);
-  return fromSource((source, destination) => run(source, destination));
+  return fromSource(run);
 }
