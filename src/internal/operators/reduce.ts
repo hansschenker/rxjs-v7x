@@ -1,5 +1,5 @@
 import { fromSource } from '../operate';
-import { scanInternals } from './scanInternals';
+import { accumulate } from './accumulate';
 import { OperatorFunction } from '../types';
 
 export function reduce<V, A = V>(accumulator: (acc: A | V, value: V, index: number) => A): OperatorFunction<V, V | A>;
@@ -57,6 +57,8 @@ export function reduce<V, A, S = A>(accumulator: (acc: A | S, value: V, index: n
  * is the result of accumulating the values emitted by the source Observable.
  */
 export function reduce<V, A>(accumulator: (acc: V | A, value: V, index: number) => A, seed?: any): OperatorFunction<V, V | A> {
-  const run = scanInternals(accumulator, seed, arguments.length >= 2, false, true);
-  return fromSource(run);
+  // A seed of `undefined` is valid, so `seed !== undefined` cannot tell whether a seed was
+  // given. Only the number of arguments at this call site can.
+  const hasSeed = arguments.length >= 2;
+  return fromSource(accumulate(accumulator, seed, hasSeed, 'final'));
 }

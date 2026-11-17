@@ -1,6 +1,6 @@
 import { fromSource } from '../operate';
 import { OperatorFunction } from '../types';
-import { scanInternals } from './scanInternals';
+import { accumulate } from './accumulate';
 
 export function scan<V, A = V>(accumulator: (acc: A | V, value: V, index: number) => A): OperatorFunction<V, V | A>;
 export function scan<V, A>(accumulator: (acc: A, value: V, index: number) => A, seed: A): OperatorFunction<V, A>;
@@ -86,11 +86,8 @@ export function scan<V, A, S>(accumulator: (acc: A | S, value: V, index: number)
  * @return A function that returns an Observable of the accumulated values.
  */
 export function scan<V, A, S>(accumulator: (acc: V | A | S, value: V, index: number) => A, seed?: S): OperatorFunction<V, V | A> {
-  // providing a seed of `undefined` *should* be valid and trigger
-  // hasSeed! so don't use `seed !== undefined` checks!
-  // For this reason, we have to check it here at the original call site
-  // otherwise inside Operator/Subscriber we won't know if `undefined`
-  // means they didn't provide anything or if they literally provided `undefined`
-  const run = scanInternals(accumulator, seed as S, arguments.length >= 2, true);
-  return fromSource(run);
+  // A seed of `undefined` is valid, so `seed !== undefined` cannot tell whether a seed was
+  // given. Only the number of arguments at this call site can.
+  const hasSeed = arguments.length >= 2;
+  return fromSource(accumulate(accumulator, seed as S, hasSeed, 'each'));
 }
