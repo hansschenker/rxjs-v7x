@@ -10,7 +10,7 @@ import { captureError } from './util/errorContext';
 
 /**
  * Per-notification behaviour that can replace the defaults of a {@link Subscriber}.
- * This is what {@link operate} feeds into the {@link Subscriber} it creates. Any error
+ * This is what {@link toDestination} (RxJS 8: `operate`) feeds into the {@link Subscriber} it creates. Any error
  * thrown inside `next`, `error` or `complete` is routed to the destination's `error`.
  * `finalize` runs exactly once, after the subscriber has been unsubscribed.
  */

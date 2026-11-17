@@ -2,7 +2,7 @@ import { asyncScheduler } from '../scheduler/async';
 import { MonoTypeOperatorFunction, SchedulerLike, OperatorFunction, ObservableInput, ObservedValueOf } from '../types';
 import { isValidDate } from '../util/isDate';
 import { Subscription } from '../Subscription';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 import { Observable } from '../Observable';
 import { innerFrom } from '../observable/innerFrom';
 import { createErrorClass } from '../util/createErrorClass';
@@ -319,76 +319,75 @@ export function timeout<T, O extends ObservableInput<any>, M>(
     throw new TypeError('No timeout provided.');
   }
 
-  return (source) =>
-    new Observable((destination) => {
-      // This subscription encapsulates our subscription to the
-      // source for this operator. We're capturing it separately,
-      // because if there is a `with` observable to fail over to,
-      // we want to unsubscribe from our original subscription, and
-      // hand of the subscription to that one.
-      let originalSourceSubscription: Subscription;
-      // The subscription for our timeout timer. This changes
-      // every time we get a new value.
-      let timerSubscription: Subscription;
-      // A bit of state we pass to our with and error factories to
-      // tell what the last value we saw was.
-      let lastValue: T | null = null;
-      // A bit of state we pass to the with and error factories to
-      // tell how many values we have seen so far.
-      let seen = 0;
-      const startTimer = (delay: number) => {
-        timerSubscription = executeSchedule(
-          destination,
-          scheduler,
-          () => {
-            try {
-              originalSourceSubscription.unsubscribe();
-              innerFrom(
-                _with!({
-                  meta,
-                  lastValue,
-                  seen,
-                })
-              ).subscribe(destination);
-            } catch (err) {
-              destination.error(err);
-            }
-          },
-          delay
-        );
-      };
-
-      originalSourceSubscription = source.subscribe(
-        operate({
-          destination,
-          next: (value: T) => {
-            // clear the timer so we can emit and start another one.
-            timerSubscription?.unsubscribe();
-            seen++;
-            // Emit
-            destination.next((lastValue = value));
-            // null | undefined are both < 0. Thanks, JavaScript.
-            each! > 0 && startTimer(each!);
-          },
-          finalize: () => {
-            if (!timerSubscription?.closed) {
-              timerSubscription?.unsubscribe();
-            }
-            // Be sure not to hold the last value in memory after unsubscription
-            // it could be quite large.
-            lastValue = null;
-          },
-        })
+  return fromSource((source, destination) => {
+    // This subscription encapsulates our subscription to the
+    // source for this operator. We're capturing it separately,
+    // because if there is a `with` observable to fail over to,
+    // we want to unsubscribe from our original subscription, and
+    // hand of the subscription to that one.
+    let originalSourceSubscription: Subscription;
+    // The subscription for our timeout timer. This changes
+    // every time we get a new value.
+    let timerSubscription: Subscription;
+    // A bit of state we pass to our with and error factories to
+    // tell what the last value we saw was.
+    let lastValue: T | null = null;
+    // A bit of state we pass to the with and error factories to
+    // tell how many values we have seen so far.
+    let seen = 0;
+    const startTimer = (delay: number) => {
+      timerSubscription = executeSchedule(
+        destination,
+        scheduler,
+        () => {
+          try {
+            originalSourceSubscription.unsubscribe();
+            innerFrom(
+              _with!({
+                meta,
+                lastValue,
+                seen,
+              })
+            ).subscribe(destination);
+          } catch (err) {
+            destination.error(err);
+          }
+        },
+        delay
       );
+    };
 
-      // Intentionally terse code.
-      // If we've `seen` a value, that means the "first" clause was met already, if it existed.
-      //   it also means that a timer was already started for "each" (in the next handler above).
-      // If `first` was provided, and it's a number, then use it.
-      // If `first` was provided and it's not a number, it's a Date, and we get the difference between it and "now".
-      // If `first` was not provided at all, then our first timer will be the value from `each`.
-      !seen && startTimer(first != null ? (typeof first === 'number' ? first : +first - scheduler!.now()) : each!);
-    });
+    originalSourceSubscription = source.subscribe(
+      toDestination({
+        destination,
+        next: (value: T) => {
+          // clear the timer so we can emit and start another one.
+          timerSubscription?.unsubscribe();
+          seen++;
+          // Emit
+          destination.next((lastValue = value));
+          // null | undefined are both < 0. Thanks, JavaScript.
+          each! > 0 && startTimer(each!);
+        },
+        finalize: () => {
+          if (!timerSubscription?.closed) {
+            timerSubscription?.unsubscribe();
+          }
+          // Be sure not to hold the last value in memory after unsubscription
+          // it could be quite large.
+          lastValue = null;
+        },
+      })
+    );
+
+    // Intentionally terse code.
+    // If we've `seen` a value, that means the "first" clause was met already, if it existed.
+    //   it also means that a timer was already started for "each" (in the next handler above).
+    // If `first` was provided, and it's a number, then use it.
+    // If `first` was provided and it's not a number, it's a Date, and we get the difference between it and "now".
+    // If `first` was not provided at all, then our first timer will be the value from `each`.
+    !seen && startTimer(first != null ? (typeof first === 'number' ? first : +first - scheduler!.now()) : each!);
+  });
 }
 
 /**

@@ -1,6 +1,6 @@
+import { fromSource } from '../operate';
 import { zip as zipStatic } from '../observable/zip';
 import { ObservableInput, ObservableInputTuple, OperatorFunction, Cons } from '../types';
-import { Observable } from '../Observable';
 
 /** @deprecated Replaced with {@link zipWith}. Will be removed in v8. */
 export function zip<T, A extends readonly unknown[]>(otherInputs: [...ObservableInputTuple<A>]): OperatorFunction<T, Cons<T, A>>;
@@ -20,8 +20,7 @@ export function zip<T, A extends readonly unknown[], R>(
  * @deprecated Replaced with {@link zipWith}. Will be removed in v8.
  */
 export function zip<T, R>(...sources: Array<ObservableInput<any> | ((...values: Array<any>) => R)>): OperatorFunction<T, any> {
-  return (source) =>
-    new Observable((destination) => {
-      zipStatic(source as ObservableInput<any>, ...(sources as Array<ObservableInput<any>>)).subscribe(destination);
-    });
+  return fromSource((source, destination) => {
+    zipStatic(source as ObservableInput<any>, ...(sources as Array<ObservableInput<any>>)).subscribe(destination);
+  });
 }

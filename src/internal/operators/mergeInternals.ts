@@ -3,7 +3,7 @@ import { innerFrom } from '../observable/innerFrom';
 import { Subscriber } from '../Subscriber';
 import { ObservableInput, SchedulerLike } from '../types';
 import { executeSchedule } from '../util/executeSchedule';
-import { operate } from '../operate';
+import { toDestination } from '../operate';
 
 /**
  * A process embodying the general "merge" strategy. This is used in
@@ -69,7 +69,7 @@ export function mergeInternals<T, R>(
 
     // Start our inner subscription.
     innerFrom(project(value, index++)).subscribe(
-      operate({
+      toDestination({
         destination,
         next: (innerValue) => {
           // `mergeScan` has additional handling here. For example
@@ -132,7 +132,7 @@ export function mergeInternals<T, R>(
 
   // Subscribe to our source observable.
   source.subscribe(
-    operate({
+    toDestination({
       destination,
       next: outerNext,
       complete: () => {

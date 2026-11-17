@@ -1,6 +1,5 @@
 import { OperatorFunction } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 export function map<T, R>(project: (value: T, index: number) => R): OperatorFunction<T, R>;
 /** @deprecated Use a closure instead of a `thisArg`. Signatures accepting a `thisArg` will be removed in v8. */
@@ -45,21 +44,20 @@ export function map<T, R, A>(project: (this: A, value: T, index: number) => R, t
  * source Observable transformed by the given `project` function.
  */
 export function map<T, R>(project: (value: T, index: number) => R, thisArg?: any): OperatorFunction<T, R> {
-  return (source) =>
-    new Observable((destination) => {
-      // The index of the value from the source. Used with projection.
-      let index = 0;
-      // Subscribe to the source, all errors and completions are sent along
-      // to the consumer.
-      source.subscribe(
-        operate({
-          destination,
-          next: (value: T) => {
-            // Call the projection function with the appropriate this context,
-            // and send the resulting value to the consumer.
-            destination.next(project.call(thisArg, value, index++));
-          },
-        })
-      );
-    });
+  return fromSource((source, destination) => {
+    // The index of the value from the source. Used with projection.
+    let index = 0;
+    // Subscribe to the source, all errors and completions are sent along
+    // to the consumer.
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value: T) => {
+          // Call the projection function with the appropriate this context,
+          // and send the resulting value to the consumer.
+          destination.next(project.call(thisArg, value, index++));
+        },
+      })
+    );
+  });
 }

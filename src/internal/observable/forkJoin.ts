@@ -3,7 +3,7 @@ import { ObservedValueOf, ObservableInputTuple, ObservableInput } from '../types
 import { argsArgArrayOrObject } from '../util/argsArgArrayOrObject';
 import { innerFrom } from './innerFrom';
 import { popResultSelector } from '../util/args';
-import { operate } from '../operate';
+import { toDestination } from '../operate';
 import { mapOneOrManyArgs } from '../util/mapOneOrManyArgs';
 import { createObject } from '../util/createObject';
 import { AnyCatcher } from '../AnyCatcher';
@@ -157,7 +157,7 @@ export function forkJoin(...args: any[]): Observable<any> {
     for (let sourceIndex = 0; sourceIndex < length; sourceIndex++) {
       let hasValue = false;
       innerFrom(sources[sourceIndex]).subscribe(
-        operate({
+        toDestination({
           destination: subscriber,
           next: (value) => {
             if (!hasValue) {

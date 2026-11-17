@@ -1,6 +1,5 @@
 import { OperatorFunction } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 /**
  * Groups pairs of consecutive emissions together and emits them as an array of
@@ -46,20 +45,19 @@ import { Observable } from '../Observable';
  * consecutive values from the source Observable.
  */
 export function pairwise<T>(): OperatorFunction<T, [T, T]> {
-  return (source) =>
-    new Observable((destination) => {
-      let prev: T;
-      let hasPrev = false;
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => {
-            const p = prev;
-            prev = value;
-            hasPrev && destination.next([p, value]);
-            hasPrev = true;
-          },
-        })
-      );
-    });
+  return fromSource((source, destination) => {
+    let prev: T;
+    let hasPrev = false;
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => {
+          const p = prev;
+          prev = value;
+          hasPrev && destination.next([p, value]);
+          hasPrev = true;
+        },
+      })
+    );
+  });
 }

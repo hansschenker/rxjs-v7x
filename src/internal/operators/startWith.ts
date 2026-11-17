@@ -1,7 +1,7 @@
+import { fromSource } from '../operate';
 import { concat } from '../observable/concat';
 import { OperatorFunction, SchedulerLike, ValueFromArray } from '../types';
 import { popScheduler } from '../util/args';
-import { Observable } from '../Observable';
 
 // Devs are more likely to pass null or undefined than they are a scheduler
 // without accompanying values. To make things easier for (naughty) devs who
@@ -58,11 +58,10 @@ export function startWith<T, A extends readonly unknown[] = T[]>(...values: A): 
  */
 export function startWith<T, D>(...values: D[]): OperatorFunction<T, T | D> {
   const scheduler = popScheduler(values);
-  return (source) =>
-    new Observable((destination) => {
-      // Here we can't pass `undefined` as a scheduler, because if we did, the
-      // code inside of `concat` would be confused by the `undefined`, and treat it
-      // like an invalid observable. So we have to split it two different ways.
-      (scheduler ? concat(values, source, scheduler) : concat(values, source)).subscribe(destination);
-    });
+  return fromSource((source, destination) => {
+    // Here we can't pass `undefined` as a scheduler, because if we did, the
+    // code inside of `concat` would be confused by the `undefined`, and treat it
+    // like an invalid observable. So we have to split it two different ways.
+    (scheduler ? concat(values, source, scheduler) : concat(values, source)).subscribe(destination);
+  });
 }

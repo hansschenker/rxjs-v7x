@@ -1,6 +1,6 @@
+import { fromSource } from '../operate';
 import { ObservableInput, ObservedValueOf, OperatorFunction } from '../types';
 import { switchMap } from './switchMap';
-import { Observable } from '../Observable';
 
 // TODO: Generate a marble diagram for these docs.
 
@@ -25,27 +25,26 @@ export function switchScan<T, R, O extends ObservableInput<any>>(
   accumulator: (acc: R, value: T, index: number) => O,
   seed: R
 ): OperatorFunction<T, ObservedValueOf<O>> {
-  return (source) =>
-    new Observable((destination) => {
-      // The state we will keep up to date to pass into our
-      // accumulator function at each new value from the source.
-      let state = seed;
+  return fromSource((source, destination) => {
+    // The state we will keep up to date to pass into our
+    // accumulator function at each new value from the source.
+    let state = seed;
 
-      // Use `switchMap` on our `source` to do the work of creating
-      // this operator. Note the backwards order here of `switchMap()(source)`
-      // to avoid needing to use `pipe` unnecessarily
-      switchMap(
-        // On each value from the source, call the accumulator with
-        // our previous state, the value and the index.
-        (value: T, index) => accumulator(state, value, index),
-        // Using the deprecated result selector here as a dirty trick
-        // to update our state with the flattened value.
-        (_, innerValue) => ((state = innerValue), innerValue)
-      )(source).subscribe(destination);
+    // Use `switchMap` on our `source` to do the work of creating
+    // this operator. Note the backwards order here of `switchMap()(source)`
+    // to avoid needing to use `pipe` unnecessarily
+    switchMap(
+      // On each value from the source, call the accumulator with
+      // our previous state, the value and the index.
+      (value: T, index) => accumulator(state, value, index),
+      // Using the deprecated result selector here as a dirty trick
+      // to update our state with the flattened value.
+      (_, innerValue) => ((state = innerValue), innerValue)
+    )(source).subscribe(destination);
 
-      return () => {
-        // Release state on finalization
-        state = null!;
-      };
-    });
+    return () => {
+      // Release state on finalization
+      state = null!;
+    };
+  });
 }

@@ -1,8 +1,7 @@
 import { ConnectableObservable } from '../observable/ConnectableObservable';
 import { Subscription } from '../Subscription';
 import { MonoTypeOperatorFunction } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 /**
  * Make a {@link ConnectableObservable} behave like a ordinary observable and automates the way
@@ -63,61 +62,60 @@ import { Observable } from '../Observable';
  * Details: https://rxjs.dev/deprecations/multicasting
  */
 export function refCount<T>(): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let connection: Subscription | null = null;
+  return fromSource((source, destination) => {
+    let connection: Subscription | null = null;
 
-      (source as any)._refCount++;
+    (source as any)._refCount++;
 
-      const refCounter = operate({
-        destination,
-        finalize: () => {
-          if (!source || (source as any)._refCount <= 0 || 0 < --(source as any)._refCount) {
-            connection = null;
-            return;
-          }
-
-          ///
-          // Compare the local RefCountSubscriber's connection Subscription to the
-          // connection Subscription on the shared ConnectableObservable. In cases
-          // where the ConnectableObservable source synchronously emits values, and
-          // the RefCountSubscriber's downstream Observers synchronously unsubscribe,
-          // execution continues to here before the RefCountOperator has a chance to
-          // supply the RefCountSubscriber with the shared connection Subscription.
-          // For example:
-          // ```
-          // range(0, 10).pipe(
-          //   publish(),
-          //   refCount(),
-          //   take(5),
-          // )
-          // .subscribe();
-          // ```
-          // In order to account for this case, RefCountSubscriber should only dispose
-          // the ConnectableObservable's shared connection Subscription if the
-          // connection Subscription exists, *and* either:
-          //   a. RefCountSubscriber doesn't have a reference to the shared connection
-          //      Subscription yet, or,
-          //   b. RefCountSubscriber's connection Subscription reference is identical
-          //      to the shared connection Subscription
-          ///
-
-          const sharedConnection = (source as any)._connection;
-          const conn = connection;
+    const refCounter = toDestination({
+      destination,
+      finalize: () => {
+        if (!source || (source as any)._refCount <= 0 || 0 < --(source as any)._refCount) {
           connection = null;
+          return;
+        }
 
-          if (sharedConnection && (!conn || sharedConnection === conn)) {
-            sharedConnection.unsubscribe();
-          }
+        ///
+        // Compare the local RefCountSubscriber's connection Subscription to the
+        // connection Subscription on the shared ConnectableObservable. In cases
+        // where the ConnectableObservable source synchronously emits values, and
+        // the RefCountSubscriber's downstream Observers synchronously unsubscribe,
+        // execution continues to here before the RefCountOperator has a chance to
+        // supply the RefCountSubscriber with the shared connection Subscription.
+        // For example:
+        // ```
+        // range(0, 10).pipe(
+        //   publish(),
+        //   refCount(),
+        //   take(5),
+        // )
+        // .subscribe();
+        // ```
+        // In order to account for this case, RefCountSubscriber should only dispose
+        // the ConnectableObservable's shared connection Subscription if the
+        // connection Subscription exists, *and* either:
+        //   a. RefCountSubscriber doesn't have a reference to the shared connection
+        //      Subscription yet, or,
+        //   b. RefCountSubscriber's connection Subscription reference is identical
+        //      to the shared connection Subscription
+        ///
 
-          destination.unsubscribe();
-        },
-      });
+        const sharedConnection = (source as any)._connection;
+        const conn = connection;
+        connection = null;
 
-      source.subscribe(refCounter);
+        if (sharedConnection && (!conn || sharedConnection === conn)) {
+          sharedConnection.unsubscribe();
+        }
 
-      if (!refCounter.closed) {
-        connection = (source as ConnectableObservable<T>).connect();
-      }
+        destination.unsubscribe();
+      },
     });
+
+    source.subscribe(refCounter);
+
+    if (!refCounter.closed) {
+      connection = (source as ConnectableObservable<T>).connect();
+    }
+  });
 }

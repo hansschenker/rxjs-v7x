@@ -1,7 +1,7 @@
 import { Observable } from '../Observable';
 import { Subscriber } from '../Subscriber';
 import { OperatorFunction, TruthyTypesOf } from '../types';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 
 export function find<T>(predicate: BooleanConstructor): OperatorFunction<T, TruthyTypesOf<T>>;
 /** @deprecated Use a closure instead of a `thisArg`. Signatures accepting a `thisArg` will be removed in v8. */
@@ -64,7 +64,7 @@ export function find<T>(
   predicate: (value: T, index: number, source: Observable<T>) => boolean,
   thisArg?: any
 ): OperatorFunction<T, T | undefined> {
-  return (source) => new Observable((destination) => createFind(predicate, thisArg, 'value')(source, destination));
+  return fromSource((source, destination) => createFind(predicate, thisArg, 'value')(source, destination));
 }
 
 export function createFind<T>(
@@ -76,7 +76,7 @@ export function createFind<T>(
   return (source: Observable<T>, subscriber: Subscriber<any>) => {
     let index = 0;
     source.subscribe(
-      operate({
+      toDestination({
         destination: subscriber,
         next: (value) => {
           const i = index++;

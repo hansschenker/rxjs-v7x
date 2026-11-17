@@ -1,6 +1,5 @@
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { Subscription } from '../Subscription';
 import { identity } from '../util/identity';
 import { timer } from '../observable/timer';
@@ -94,74 +93,73 @@ export function retry<T>(configOrCount: number | RetryConfig = Infinity): MonoTy
 
   return count <= 0
     ? identity
-    : (source) =>
-        new Observable((destination) => {
-          let soFar = 0;
-          let innerSub: Subscription | null;
-          const subscribeForRetry = () => {
-            let syncUnsub = false;
-            innerSub = source.subscribe(
-              operate({
-                destination,
-                next: (value) => {
-                  // If we're resetting on success
-                  if (resetOnSuccess) {
-                    soFar = 0;
-                  }
-                  destination.next(value);
-                },
-                error: (err) => {
-                  if (soFar++ < count) {
-                    // We are still under our retry count
-                    const resub = () => {
-                      if (innerSub) {
-                        innerSub.unsubscribe();
-                        innerSub = null;
-                        subscribeForRetry();
-                      } else {
-                        syncUnsub = true;
-                      }
-                    };
-
-                    if (delay != null) {
-                      // The user specified a retry delay.
-                      // They gave us a number, use a timer, otherwise, it's a function,
-                      // and we're going to call it to get a notifier.
-                      const notifier = typeof delay === 'number' ? timer(delay) : innerFrom(delay(err, soFar));
-                      const notifierSubscriber = operate({
-                        destination,
-                        next: () => {
-                          // After we get the first notification, we
-                          // unsubscribe from the notifier, because we don't want anymore
-                          // and we resubscribe to the source.
-                          notifierSubscriber.unsubscribe();
-                          resub();
-                        },
-                        complete: () => {
-                          // The notifier completed without emitting.
-                          // The author is telling us they want to complete.
-                          destination.complete();
-                        },
-                      });
-                      notifier.subscribe(notifierSubscriber);
+    : fromSource((source, destination) => {
+        let soFar = 0;
+        let innerSub: Subscription | null;
+        const subscribeForRetry = () => {
+          let syncUnsub = false;
+          innerSub = source.subscribe(
+            toDestination({
+              destination,
+              next: (value) => {
+                // If we're resetting on success
+                if (resetOnSuccess) {
+                  soFar = 0;
+                }
+                destination.next(value);
+              },
+              error: (err) => {
+                if (soFar++ < count) {
+                  // We are still under our retry count
+                  const resub = () => {
+                    if (innerSub) {
+                      innerSub.unsubscribe();
+                      innerSub = null;
+                      subscribeForRetry();
                     } else {
-                      // There was no notifier given. Just resub immediately.
-                      resub();
+                      syncUnsub = true;
                     }
+                  };
+
+                  if (delay != null) {
+                    // The user specified a retry delay.
+                    // They gave us a number, use a timer, otherwise, it's a function,
+                    // and we're going to call it to get a notifier.
+                    const notifier = typeof delay === 'number' ? timer(delay) : innerFrom(delay(err, soFar));
+                    const notifierSubscriber = toDestination({
+                      destination,
+                      next: () => {
+                        // After we get the first notification, we
+                        // unsubscribe from the notifier, because we don't want anymore
+                        // and we resubscribe to the source.
+                        notifierSubscriber.unsubscribe();
+                        resub();
+                      },
+                      complete: () => {
+                        // The notifier completed without emitting.
+                        // The author is telling us they want to complete.
+                        destination.complete();
+                      },
+                    });
+                    notifier.subscribe(notifierSubscriber);
                   } else {
-                    // We're past our maximum number of retries.
-                    // Just send along the error.
-                    destination.error(err);
+                    // There was no notifier given. Just resub immediately.
+                    resub();
                   }
-                },
-              })
-            );
-            if (syncUnsub) {
-              innerSub.unsubscribe();
-              innerSub = null;
-              subscribeForRetry();
-            }
-          };
-          subscribeForRetry();
-        });
+                } else {
+                  // We're past our maximum number of retries.
+                  // Just send along the error.
+                  destination.error(err);
+                }
+              },
+            })
+          );
+          if (syncUnsub) {
+            innerSub.unsubscribe();
+            innerSub = null;
+            subscribeForRetry();
+          }
+        };
+        subscribeForRetry();
+      });
 }

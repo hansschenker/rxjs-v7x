@@ -1,6 +1,5 @@
 import { OperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
 import { innerFrom } from '../observable/innerFrom';
 
@@ -43,40 +42,39 @@ import { innerFrom } from '../observable/innerFrom';
  * of values.
  */
 export function buffer<T>(closingNotifier: ObservableInput<any>): OperatorFunction<T, T[]> {
-  return (source) =>
-    new Observable((destination) => {
-      // The current buffered values.
-      let currentBuffer: T[] = [];
+  return fromSource((source, destination) => {
+    // The current buffered values.
+    let currentBuffer: T[] = [];
 
-      // Subscribe to our source.
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => currentBuffer.push(value),
-          complete: () => {
-            destination.next(currentBuffer);
-            destination.complete();
-          },
-        })
-      );
+    // Subscribe to our source.
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => currentBuffer.push(value),
+        complete: () => {
+          destination.next(currentBuffer);
+          destination.complete();
+        },
+      })
+    );
 
-      // Subscribe to the closing notifier.
-      innerFrom(closingNotifier).subscribe(
-        operate({
-          destination,
-          next: () => {
-            // Start a new buffer and emit the previous one.
-            const b = currentBuffer;
-            currentBuffer = [];
-            destination.next(b);
-          },
-          complete: noop,
-        })
-      );
+    // Subscribe to the closing notifier.
+    innerFrom(closingNotifier).subscribe(
+      toDestination({
+        destination,
+        next: () => {
+          // Start a new buffer and emit the previous one.
+          const b = currentBuffer;
+          currentBuffer = [];
+          destination.next(b);
+        },
+        complete: noop,
+      })
+    );
 
-      return () => {
-        // Ensure buffered values are released on finalization.
-        currentBuffer = null!;
-      };
-    });
+    return () => {
+      // Ensure buffered values are released on finalization.
+      currentBuffer = null!;
+    };
+  });
 }

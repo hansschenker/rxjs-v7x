@@ -1,7 +1,6 @@
 import { EMPTY } from '../observable/empty';
 import { MonoTypeOperatorFunction } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 /**
  * Waits for the source to complete, then emits the last N values from the source,
@@ -45,36 +44,35 @@ import { Observable } from '../Observable';
 export function takeLast<T>(count: number): MonoTypeOperatorFunction<T> {
   return count <= 0
     ? () => EMPTY
-    : (source) =>
-        new Observable((destination) => {
-          // This buffer will hold the values we are going to emit
-          // when the source completes. Since we only want to take the
-          // last N values, we can't emit until we're sure we're not getting
-          // any more values.
-          let buffer: T[] = [];
-          source.subscribe(
-            operate({
-              destination,
-              next: (value) => {
-                // Add the most recent value onto the end of our buffer.
-                buffer.push(value);
-                // If our buffer is now larger than the number of values we
-                // want to take, we remove the oldest value from the buffer.
-                count < buffer.length && buffer.shift();
-              },
-              complete: () => {
-                // The source completed, we now know what are last values
-                // are, emit them in the order they were received.
-                for (const value of buffer) {
-                  destination.next(value);
-                }
-                destination.complete();
-              },
-              finalize: () => {
-                // During finalization release the values in our buffer.
-                buffer = null!;
-              },
-            })
-          );
-        });
+    : fromSource((source, destination) => {
+        // This buffer will hold the values we are going to emit
+        // when the source completes. Since we only want to take the
+        // last N values, we can't emit until we're sure we're not getting
+        // any more values.
+        let buffer: T[] = [];
+        source.subscribe(
+          toDestination({
+            destination,
+            next: (value) => {
+              // Add the most recent value onto the end of our buffer.
+              buffer.push(value);
+              // If our buffer is now larger than the number of values we
+              // want to take, we remove the oldest value from the buffer.
+              count < buffer.length && buffer.shift();
+            },
+            complete: () => {
+              // The source completed, we now know what are last values
+              // are, emit them in the order they were received.
+              for (const value of buffer) {
+                destination.next(value);
+              }
+              destination.complete();
+            },
+            finalize: () => {
+              // During finalization release the values in our buffer.
+              buffer = null!;
+            },
+          })
+        );
+      });
 }

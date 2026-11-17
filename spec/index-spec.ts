@@ -7,6 +7,8 @@ describe('index', () => {
     expect(index.Observable).to.exist;
     expect(index.ConnectableObservable).to.exist;
     expect(index.operate).to.exist;
+    expect(index.fromSource).to.exist;
+    expect(index.toDestination).to.exist;
   });
 
   it('should export the Subject types', () => {

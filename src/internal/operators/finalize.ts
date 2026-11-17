@@ -1,5 +1,5 @@
+import { fromSource } from '../operate';
 import { MonoTypeOperatorFunction } from '../types';
-import { Observable } from '../Observable';
 
 /**
  * Returns an Observable that mirrors the source Observable, but will call a specified function when
@@ -63,14 +63,13 @@ import { Observable } from '../Observable';
  * will call the specified function on termination.
  */
 export function finalize<T>(callback: () => void): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      // TODO: This try/finally was only added for `useDeprecatedSynchronousErrorHandling`.
-      // REMOVE THIS WHEN THAT HOT GARBAGE IS REMOVED IN V8.
-      try {
-        source.subscribe(destination);
-      } finally {
-        destination.add(callback);
-      }
-    });
+  return fromSource((source, destination) => {
+    // TODO: This try/finally was only added for `useDeprecatedSynchronousErrorHandling`.
+    // REMOVE THIS WHEN THAT HOT GARBAGE IS REMOVED IN V8.
+    try {
+      source.subscribe(destination);
+    } finally {
+      destination.add(callback);
+    }
+  });
 }

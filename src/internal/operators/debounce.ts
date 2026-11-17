@@ -1,7 +1,6 @@
 import { Subscriber } from '../Subscriber';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
 import { innerFrom } from '../observable/innerFrom';
 
@@ -64,59 +63,58 @@ import { innerFrom } from '../observable/innerFrom';
  * `durationSelector`, and may drop some values if they occur too frequently.
  */
 export function debounce<T>(durationSelector: (value: T) => ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let hasValue = false;
-      let lastValue: T | null = null;
-      // The subscriber/subscription for the current debounce, if there is one.
-      let durationSubscriber: Subscriber<any> | null = null;
+  return fromSource((source, destination) => {
+    let hasValue = false;
+    let lastValue: T | null = null;
+    // The subscriber/subscription for the current debounce, if there is one.
+    let durationSubscriber: Subscriber<any> | null = null;
 
-      const emit = () => {
-        // Unsubscribe any current debounce subscription we have,
-        // we only cared about the first notification from it, and we
-        // want to clean that subscription up as soon as possible.
-        durationSubscriber?.unsubscribe();
-        durationSubscriber = null;
-        if (hasValue) {
-          // We have a value! Free up memory first, then emit the value.
-          hasValue = false;
-          const value = lastValue!;
-          lastValue = null;
-          destination.next(value);
-        }
-      };
+    const emit = () => {
+      // Unsubscribe any current debounce subscription we have,
+      // we only cared about the first notification from it, and we
+      // want to clean that subscription up as soon as possible.
+      durationSubscriber?.unsubscribe();
+      durationSubscriber = null;
+      if (hasValue) {
+        // We have a value! Free up memory first, then emit the value.
+        hasValue = false;
+        const value = lastValue!;
+        lastValue = null;
+        destination.next(value);
+      }
+    };
 
-      source.subscribe(
-        operate({
-          destination,
-          next: (value: T) => {
-            // Cancel any pending debounce duration. We don't
-            // need to null it out here yet tho, because we're just going
-            // to create another one in a few lines.
-            durationSubscriber?.unsubscribe();
-            hasValue = true;
-            lastValue = value;
-            // Capture our duration subscriber, so we can unsubscribe it when we're notified
-            // and we're going to emit the value.
-            durationSubscriber = operate({
-              destination,
-              next: emit,
-              complete: noop,
-            });
-            // Subscribe to the duration.
-            innerFrom(durationSelector(value)).subscribe(durationSubscriber);
-          },
-          complete: () => {
-            // Source completed.
-            // Emit any pending debounced values then complete
-            emit();
-            destination.complete();
-          },
-          finalize: () => {
-            // Finalization.
-            lastValue = durationSubscriber = null;
-          },
-        })
-      );
-    });
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value: T) => {
+          // Cancel any pending debounce duration. We don't
+          // need to null it out here yet tho, because we're just going
+          // to create another one in a few lines.
+          durationSubscriber?.unsubscribe();
+          hasValue = true;
+          lastValue = value;
+          // Capture our duration subscriber, so we can unsubscribe it when we're notified
+          // and we're going to emit the value.
+          durationSubscriber = toDestination({
+            destination,
+            next: emit,
+            complete: noop,
+          });
+          // Subscribe to the duration.
+          innerFrom(durationSelector(value)).subscribe(durationSubscriber);
+        },
+        complete: () => {
+          // Source completed.
+          // Emit any pending debounced values then complete
+          emit();
+          destination.complete();
+        },
+        finalize: () => {
+          // Finalization.
+          lastValue = durationSubscriber = null;
+        },
+      })
+    );
+  });
 }

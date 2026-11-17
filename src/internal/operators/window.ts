@@ -1,7 +1,7 @@
 import { Observable } from '../Observable';
 import { OperatorFunction, ObservableInput } from '../types';
 import { Subject } from '../Subject';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
 import { innerFrom } from '../observable/innerFrom';
 
@@ -50,49 +50,48 @@ import { innerFrom } from '../observable/innerFrom';
  * Observables emitting values of the source Observable.
  */
 export function window<T>(windowBoundaries: ObservableInput<any>): OperatorFunction<T, Observable<T>> {
-  return (source) =>
-    new Observable((destination) => {
-      let windowSubject: Subject<T> = new Subject<T>();
+  return fromSource((source, destination) => {
+    let windowSubject: Subject<T> = new Subject<T>();
 
-      destination.next(windowSubject.asObservable());
+    destination.next(windowSubject.asObservable());
 
-      const errorHandler = (err: any) => {
-        windowSubject.error(err);
-        destination.error(err);
-      };
+    const errorHandler = (err: any) => {
+      windowSubject.error(err);
+      destination.error(err);
+    };
 
-      // Subscribe to our source
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => windowSubject?.next(value),
-          complete: () => {
-            windowSubject.complete();
-            destination.complete();
-          },
-          error: errorHandler,
-        })
-      );
+    // Subscribe to our source
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => windowSubject?.next(value),
+        complete: () => {
+          windowSubject.complete();
+          destination.complete();
+        },
+        error: errorHandler,
+      })
+    );
 
-      // Subscribe to the window boundaries.
-      innerFrom(windowBoundaries).subscribe(
-        operate({
-          destination,
-          next: () => {
-            windowSubject.complete();
-            destination.next((windowSubject = new Subject()));
-          },
-          complete: noop,
-          error: errorHandler,
-        })
-      );
+    // Subscribe to the window boundaries.
+    innerFrom(windowBoundaries).subscribe(
+      toDestination({
+        destination,
+        next: () => {
+          windowSubject.complete();
+          destination.next((windowSubject = new Subject()));
+        },
+        complete: noop,
+        error: errorHandler,
+      })
+    );
 
-      return () => {
-        // Unsubscribing the subject ensures that anyone who has captured
-        // a reference to this window that tries to use it after it can
-        // no longer get values from the source will get an ObjectUnsubscribedError.
-        windowSubject?.unsubscribe();
-        windowSubject = null!;
-      };
-    });
+    return () => {
+      // Unsubscribing the subject ensures that anyone who has captured
+      // a reference to this window that tries to use it after it can
+      // no longer get values from the source will get an ObjectUnsubscribedError.
+      windowSubject?.unsubscribe();
+      windowSubject = null!;
+    };
+  });
 }

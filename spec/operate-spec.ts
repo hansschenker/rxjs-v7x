@@ -1,6 +1,6 @@
 /** @prettier */
 import { expect } from 'chai';
-import { Observable, Subscriber, Subscription, operate, of, throwError, OperatorFunction } from 'rxjs';
+import { Observable, Subject, Subscriber, Subscription, operate, fromSource, toDestination, of, throwError, OperatorFunction } from 'rxjs';
 
 function recorder() {
   const seen: any[] = [];
@@ -248,5 +248,122 @@ describe('operate', () => {
       complete: () => results.push('done'),
     });
     expect(results).to.deep.equal([42, 'done']);
+  });
+});
+
+describe('toDestination', () => {
+  it('should be the same function as operate', () => {
+    expect(operate).to.equal(toDestination);
+  });
+
+  it('should create a Subscriber wired to the destination', () => {
+    const { seen, destination } = recorder();
+    let finalized = 0;
+    const subscriber = toDestination<number, number>({
+      destination,
+      next: (value) => destination.next(value * 10),
+      finalize: () => finalized++,
+    });
+    expect(subscriber).to.be.instanceOf(Subscriber);
+    subscriber.next(1);
+    subscriber.complete();
+    expect(seen).to.deep.equal([['N', 10], ['C']]);
+    expect(finalized).to.equal(1);
+  });
+});
+
+describe('fromSource', () => {
+  function evens(): OperatorFunction<number, number> {
+    return fromSource((source, destination) => {
+      source.subscribe(
+        toDestination({
+          destination,
+          next: (value) => {
+            if (value % 2 === 0) {
+              destination.next(value);
+            }
+          },
+        })
+      );
+    });
+  }
+
+  it('should build an operator from a source and a destination', () => {
+    const results: any[] = [];
+    of(1, 2, 3, 4)
+      .pipe(evens())
+      .subscribe({ next: (value) => results.push(value), complete: () => results.push('done') });
+    expect(results).to.deep.equal([2, 4, 'done']);
+  });
+
+  it('should return a function that returns a new Observable without subscribing', () => {
+    let runs = 0;
+    const source = new Observable<number>((subscriber) => {
+      runs++;
+      subscriber.complete();
+    });
+    const result = evens()(source);
+    expect(result).to.be.instanceOf(Observable);
+    expect(result).to.not.equal(source);
+    expect(runs).to.equal(0);
+  });
+
+  it('should call connect once per subscription with private state', () => {
+    let connects = 0;
+    const counter: OperatorFunction<string, number> = fromSource((source, destination) => {
+      connects++;
+      let count = 0;
+      source.subscribe(toDestination({ destination, next: () => destination.next(++count) }));
+    });
+    const counted = of('a', 'b').pipe(counter);
+    const a: number[] = [];
+    const b: number[] = [];
+    counted.subscribe((value) => a.push(value));
+    counted.subscribe((value) => b.push(value));
+    expect(connects).to.equal(2);
+    expect(a).to.deep.equal([1, 2]);
+    expect(b).to.deep.equal([1, 2]);
+  });
+
+  it('should call a teardown returned from connect', () => {
+    let teardowns = 0;
+    const withTeardown: OperatorFunction<number, number> = fromSource((source, destination) => {
+      source.subscribe(toDestination({ destination }));
+      return () => teardowns++;
+    });
+    const subscription = new Observable<number>(() => {
+      /* never completes */
+    })
+      .pipe(withTeardown)
+      .subscribe();
+    expect(teardowns).to.equal(0);
+    subscription.unsubscribe();
+    expect(teardowns).to.equal(1);
+  });
+
+  it('should send an error thrown inside connect to the destination', () => {
+    const error = new Error('setup failed');
+    const failing: OperatorFunction<number, number> = fromSource(() => {
+      throw error;
+    });
+    const results: any[] = [];
+    of(1)
+      .pipe(failing)
+      .subscribe({ next: (value) => results.push(value), error: (err) => results.push(err) });
+    expect(results).to.deep.equal([error]);
+  });
+
+  it('should tear down the source when the consumer unsubscribes', () => {
+    let teardowns = 0;
+    const source = new Observable<number>(() => () => teardowns++);
+    const subscription: Subscription = source.pipe(evens()).subscribe();
+    subscription.unsubscribe();
+    expect(teardowns).to.equal(1);
+  });
+
+  it('should return a plain Observable for a piped Subject, as there is no lift', () => {
+    const piped: any = new Subject<number>().pipe(evens());
+    expect(piped.constructor).to.equal(Observable);
+    expect(piped.next).to.be.undefined;
   });
 });

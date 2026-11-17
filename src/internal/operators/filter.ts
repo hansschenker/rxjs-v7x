@@ -1,6 +1,5 @@
 import { OperatorFunction, MonoTypeOperatorFunction, TruthyTypesOf } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 /** @deprecated Use a closure instead of a `thisArg`. Signatures accepting a `thisArg` will be removed in v8. */
 export function filter<T, S extends T, A>(predicate: (this: A, value: T, index: number) => value is S, thisArg: A): OperatorFunction<T, S>;
@@ -59,21 +58,20 @@ export function filter<T>(predicate: (value: T, index: number) => boolean): Mono
  * source Observable that satisfy the specified `predicate`.
  */
 export function filter<T>(predicate: (value: T, index: number) => boolean, thisArg?: any): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      // An index passed to our predicate function on each call.
-      let index = 0;
+  return fromSource((source, destination) => {
+    // An index passed to our predicate function on each call.
+    let index = 0;
 
-      // Subscribe to the source, all errors and completions are
-      // forwarded to the consumer.
-      source.subscribe(
-        // Call the predicate with the appropriate `this` context,
-        // if the predicate returns `true`, then send the value
-        // to the consumer.
-        operate({
-          destination,
-          next: (value) => predicate.call(thisArg, value, index++) && destination.next(value),
-        })
-      );
-    });
+    // Subscribe to the source, all errors and completions are
+    // forwarded to the consumer.
+    source.subscribe(
+      // Call the predicate with the appropriate `this` context,
+      // if the predicate returns `true`, then send the value
+      // to the consumer.
+      toDestination({
+        destination,
+        next: (value) => predicate.call(thisArg, value, index++) && destination.next(value),
+      })
+    );
+  });
 }

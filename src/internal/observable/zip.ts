@@ -3,7 +3,7 @@ import { ObservableInputTuple } from '../types';
 import { innerFrom } from './innerFrom';
 import { argsOrArgArray } from '../util/argsOrArgArray';
 import { EMPTY } from './empty';
-import { operate } from '../operate';
+import { toDestination } from '../operate';
 import { popResultSelector } from '../util/args';
 
 export function zip<A extends readonly unknown[]>(sources: [...ObservableInputTuple<A>]): Observable<A>;
@@ -76,7 +76,7 @@ export function zip(...args: unknown[]): Observable<unknown> {
         // access the related buffers and completion properties
         for (let sourceIndex = 0; !subscriber.closed && sourceIndex < sources.length; sourceIndex++) {
           innerFrom(sources[sourceIndex]).subscribe(
-            operate({
+            toDestination({
               destination: subscriber,
               next: (value) => {
                 buffers[sourceIndex].push(value);

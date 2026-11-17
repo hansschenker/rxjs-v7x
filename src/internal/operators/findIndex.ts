@@ -1,3 +1,4 @@
+import { fromSource } from '../operate';
 import { Observable } from '../Observable';
 import { Falsy, OperatorFunction } from '../types';
 import { createFind } from './find';
@@ -58,5 +59,5 @@ export function findIndex<T>(
   predicate: (value: T, index: number, source: Observable<T>) => boolean,
   thisArg?: any
 ): OperatorFunction<T, number> {
-  return (source) => new Observable((destination) => createFind(predicate, thisArg, 'index')(source, destination));
+  return fromSource((source, destination) => createFind(predicate, thisArg, 'index')(source, destination));
 }

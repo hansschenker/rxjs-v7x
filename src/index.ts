@@ -36,7 +36,7 @@ export { Scheduler } from './internal/Scheduler';
 /* Subscription */
 export { Subscription } from './internal/Subscription';
 export { Subscriber, SubscriberOverrides } from './internal/Subscriber';
-export { operate, OperateConfig } from './internal/operate';
+export { fromSource, toDestination, operate, ToDestinationConfig, OperateConfig } from './internal/operate';
 
 /* Notification */
 export { Notification, NotificationKind } from './internal/Notification';

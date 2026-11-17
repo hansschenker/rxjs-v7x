@@ -2,7 +2,7 @@ import { Subscriber } from '../Subscriber';
 import { Observable } from '../Observable';
 import { Subject } from '../Subject';
 import { ObservableInput, OperatorFunction } from '../types';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 import { innerFrom } from '../observable/innerFrom';
 
 /**
@@ -51,82 +51,81 @@ import { innerFrom } from '../observable/innerFrom';
  * Observables.
  */
 export function windowWhen<T>(closingSelector: () => ObservableInput<any>): OperatorFunction<T, Observable<T>> {
-  return (source) =>
-    new Observable((destination) => {
-      let window: Subject<T> | null;
-      let closingSubscriber: Subscriber<any> | undefined;
+  return fromSource((source, destination) => {
+    let window: Subject<T> | null;
+    let closingSubscriber: Subscriber<any> | undefined;
 
-      /**
-       * When we get an error, we have to notify both the
-       * destination subscriber and the window.
-       */
-      const handleError = (err: any) => {
-        window!.error(err);
-        destination.error(err);
-      };
+    /**
+     * When we get an error, we have to notify both the
+     * destination subscriber and the window.
+     */
+    const handleError = (err: any) => {
+      window!.error(err);
+      destination.error(err);
+    };
 
-      /**
-       * Called every time we need to open a window.
-       * Recursive, as it will start the closing notifier, which
-       * inevitably *should* call openWindow -- but may not if
-       * it is a "never" observable.
-       */
-      const openWindow = () => {
-        // We need to clean up our closing subscription,
-        // we only cared about the first next or complete notification.
-        closingSubscriber?.unsubscribe();
+    /**
+     * Called every time we need to open a window.
+     * Recursive, as it will start the closing notifier, which
+     * inevitably *should* call openWindow -- but may not if
+     * it is a "never" observable.
+     */
+    const openWindow = () => {
+      // We need to clean up our closing subscription,
+      // we only cared about the first next or complete notification.
+      closingSubscriber?.unsubscribe();
 
-        // Close our window before starting a new one.
-        window?.complete();
+      // Close our window before starting a new one.
+      window?.complete();
 
-        // Start the new window.
-        window = new Subject<T>();
-        destination.next(window.asObservable());
+      // Start the new window.
+      window = new Subject<T>();
+      destination.next(window.asObservable());
 
-        // Get our closing notifier.
-        let closingNotifier: Observable<any>;
-        try {
-          closingNotifier = innerFrom(closingSelector());
-        } catch (err) {
-          handleError(err);
-          return;
-        }
+      // Get our closing notifier.
+      let closingNotifier: Observable<any>;
+      try {
+        closingNotifier = innerFrom(closingSelector());
+      } catch (err) {
+        handleError(err);
+        return;
+      }
 
-        // Subscribe to the closing notifier, be sure
-        // to capture the subscriber (aka Subscription)
-        // so we can clean it up when we close the window
-        // and open a new one.
-        closingNotifier.subscribe(
-          (closingSubscriber = operate({
-            destination,
-            next: openWindow,
-            complete: openWindow,
-            error: handleError,
-          }))
-        );
-      };
-
-      // Start the first window.
-      openWindow();
-
-      // Subscribe to the source
-      source.subscribe(
-        operate({
+      // Subscribe to the closing notifier, be sure
+      // to capture the subscriber (aka Subscription)
+      // so we can clean it up when we close the window
+      // and open a new one.
+      closingNotifier.subscribe(
+        (closingSubscriber = toDestination({
           destination,
-          next: (value) => window!.next(value),
-          complete: () => {
-            // The source completed, close the window and complete.
-            window!.complete();
-            destination.complete();
-          },
+          next: openWindow,
+          complete: openWindow,
           error: handleError,
-          finalize: () => {
-            // Be sure to clean up our closing subscription
-            // when this tears down.
-            closingSubscriber?.unsubscribe();
-            window = null!;
-          },
-        })
+        }))
       );
-    });
+    };
+
+    // Start the first window.
+    openWindow();
+
+    // Subscribe to the source
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => window!.next(value),
+        complete: () => {
+          // The source completed, close the window and complete.
+          window!.complete();
+          destination.complete();
+        },
+        error: handleError,
+        finalize: () => {
+          // Be sure to clean up our closing subscription
+          // when this tears down.
+          closingSubscriber?.unsubscribe();
+          window = null!;
+        },
+      })
+    );
+  });
 }

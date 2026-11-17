@@ -1,8 +1,7 @@
 import { asyncScheduler } from '../scheduler/async';
 import { Subscription } from '../Subscription';
 import { MonoTypeOperatorFunction, SchedulerAction, SchedulerLike } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 
 /**
  * Emits a notification from the source Observable only after a particular time span
@@ -61,62 +60,61 @@ import { Observable } from '../Observable';
  * if they occur too frequently.
  */
 export function debounceTime<T>(dueTime: number, scheduler: SchedulerLike = asyncScheduler): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let activeTask: Subscription | null = null;
-      let lastValue: T | null = null;
-      let lastTime: number | null = null;
+  return fromSource((source, destination) => {
+    let activeTask: Subscription | null = null;
+    let lastValue: T | null = null;
+    let lastTime: number | null = null;
 
-      const emit = () => {
-        if (activeTask) {
-          // We have a value! Free up memory first, then emit the value.
-          activeTask.unsubscribe();
-          activeTask = null;
-          const value = lastValue!;
-          lastValue = null;
-          destination.next(value);
-        }
-      };
-      function emitWhenIdle(this: SchedulerAction<unknown>) {
-        // This is called `dueTime` after the first value
-        // but we might have received new values during this window!
+    const emit = () => {
+      if (activeTask) {
+        // We have a value! Free up memory first, then emit the value.
+        activeTask.unsubscribe();
+        activeTask = null;
+        const value = lastValue!;
+        lastValue = null;
+        destination.next(value);
+      }
+    };
+    function emitWhenIdle(this: SchedulerAction<unknown>) {
+      // This is called `dueTime` after the first value
+      // but we might have received new values during this window!
 
-        const targetTime = lastTime! + dueTime;
-        const now = scheduler.now();
-        if (now < targetTime) {
-          // On that case, re-schedule to the new target
-          activeTask = this.schedule(undefined, targetTime - now);
-          destination.add(activeTask);
-          return;
-        }
-
-        emit();
+      const targetTime = lastTime! + dueTime;
+      const now = scheduler.now();
+      if (now < targetTime) {
+        // On that case, re-schedule to the new target
+        activeTask = this.schedule(undefined, targetTime - now);
+        destination.add(activeTask);
+        return;
       }
 
-      source.subscribe(
-        operate({
-          destination,
-          next: (value: T) => {
-            lastValue = value;
-            lastTime = scheduler.now();
+      emit();
+    }
 
-            // Only set up a task if it's not already up
-            if (!activeTask) {
-              activeTask = scheduler.schedule(emitWhenIdle, dueTime);
-              destination.add(activeTask);
-            }
-          },
-          complete: () => {
-            // Source completed.
-            // Emit any pending debounced values then complete
-            emit();
-            destination.complete();
-          },
-          finalize: () => {
-            // Finalization.
-            lastValue = activeTask = null;
-          },
-        })
-      );
-    });
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value: T) => {
+          lastValue = value;
+          lastTime = scheduler.now();
+
+          // Only set up a task if it's not already up
+          if (!activeTask) {
+            activeTask = scheduler.schedule(emitWhenIdle, dueTime);
+            destination.add(activeTask);
+          }
+        },
+        complete: () => {
+          // Source completed.
+          // Emit any pending debounced values then complete
+          emit();
+          destination.complete();
+        },
+        finalize: () => {
+          // Finalization.
+          lastValue = activeTask = null;
+        },
+      })
+    );
+  });
 }

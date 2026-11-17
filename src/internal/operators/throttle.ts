@@ -1,8 +1,7 @@
 import { Subscription } from '../Subscription';
 
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { innerFrom } from '../observable/innerFrom';
 
 /**
@@ -82,70 +81,69 @@ export interface ThrottleConfig {
  * operation to limit the rate of emissions from the source.
  */
 export function throttle<T>(durationSelector: (value: T) => ObservableInput<any>, config?: ThrottleConfig): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      const { leading = true, trailing = false } = config ?? {};
-      let hasValue = false;
-      let sendValue: T | null = null;
-      let throttled: Subscription | null = null;
-      let isComplete = false;
+  return fromSource((source, destination) => {
+    const { leading = true, trailing = false } = config ?? {};
+    let hasValue = false;
+    let sendValue: T | null = null;
+    let throttled: Subscription | null = null;
+    let isComplete = false;
 
-      const endThrottling = () => {
-        throttled?.unsubscribe();
-        throttled = null;
-        if (trailing) {
-          send();
-          isComplete && destination.complete();
-        }
-      };
-
-      const cleanupThrottling = () => {
-        throttled = null;
+    const endThrottling = () => {
+      throttled?.unsubscribe();
+      throttled = null;
+      if (trailing) {
+        send();
         isComplete && destination.complete();
-      };
+      }
+    };
 
-      const startThrottle = (value: T) =>
-        (throttled = innerFrom(durationSelector(value)).subscribe(
-          operate({
-            destination,
-            next: endThrottling,
-            complete: cleanupThrottling,
-          })
-        ));
+    const cleanupThrottling = () => {
+      throttled = null;
+      isComplete && destination.complete();
+    };
 
-      const send = () => {
-        if (hasValue) {
-          // Ensure we clear out our value and hasValue flag
-          // before we emit, otherwise reentrant code can cause
-          // issues here.
-          hasValue = false;
-          const value = sendValue!;
-          sendValue = null;
-          // Emit the value.
-          destination.next(value);
-          !isComplete && startThrottle(value);
-        }
-      };
-
-      source.subscribe(
-        operate({
+    const startThrottle = (value: T) =>
+      (throttled = innerFrom(durationSelector(value)).subscribe(
+        toDestination({
           destination,
-          // Regarding the presence of throttled.closed in the following
-          next:
-            // conditions, if a synchronous duration selector is specified - weird,
-            // but legal - an already-closed subscription will be assigned to
-            // throttled, so the subscription's closed property needs to be checked,
-            // too.
-            (value) => {
-              hasValue = true;
-              sendValue = value;
-              !(throttled && !throttled.closed) && (leading ? send() : startThrottle(value));
-            },
-          complete: () => {
-            isComplete = true;
-            !(trailing && hasValue && throttled && !throttled.closed) && destination.complete();
-          },
+          next: endThrottling,
+          complete: cleanupThrottling,
         })
-      );
-    });
+      ));
+
+    const send = () => {
+      if (hasValue) {
+        // Ensure we clear out our value and hasValue flag
+        // before we emit, otherwise reentrant code can cause
+        // issues here.
+        hasValue = false;
+        const value = sendValue!;
+        sendValue = null;
+        // Emit the value.
+        destination.next(value);
+        !isComplete && startThrottle(value);
+      }
+    };
+
+    source.subscribe(
+      toDestination({
+        destination,
+        // Regarding the presence of throttled.closed in the following
+        next:
+          // conditions, if a synchronous duration selector is specified - weird,
+          // but legal - an already-closed subscription will be assigned to
+          // throttled, so the subscription's closed property needs to be checked,
+          // too.
+          (value) => {
+            hasValue = true;
+            sendValue = value;
+            !(throttled && !throttled.closed) && (leading ? send() : startThrottle(value));
+          },
+        complete: () => {
+          isComplete = true;
+          !(trailing && hasValue && throttled && !throttled.closed) && destination.complete();
+        },
+      })
+    );
+  });
 }

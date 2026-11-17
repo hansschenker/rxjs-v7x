@@ -3,7 +3,7 @@ import { Observable } from '../Observable';
 import { Subscriber } from '../Subscriber';
 import { Subscription } from '../Subscription';
 import { refCount as higherOrderRefCount } from '../operators/refCount';
-import { operate } from '../operate';
+import { toDestination } from '../operate';
 
 /**
  * @class ConnectableObservable<T>
@@ -70,7 +70,7 @@ export class ConnectableObservable<T> extends Observable<T> {
       const subject = this.getSubject();
       connection.add(
         this.source.subscribe(
-          operate({
+          toDestination({
             destination: subject as any,
             complete: () => {
               this._teardown();

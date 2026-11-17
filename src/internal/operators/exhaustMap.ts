@@ -3,7 +3,7 @@ import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { map } from './map';
 import { innerFrom } from '../observable/innerFrom';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 
 /* tslint:disable:max-line-length */
 export function exhaustMap<T, O extends ObservableInput<any>>(
@@ -73,31 +73,30 @@ export function exhaustMap<T, R, O extends ObservableInput<any>>(
     return (source: Observable<T>) =>
       source.pipe(exhaustMap((a, i) => innerFrom(project(a, i)).pipe(map((b: any, ii: any) => resultSelector(a, b, i, ii)))));
   }
-  return (source) =>
-    new Observable((destination) => {
-      let index = 0;
-      let innerSub: Subscriber<T> | null = null;
-      let isComplete = false;
-      source.subscribe(
-        operate({
-          destination,
-          next: (outerValue) => {
-            if (!innerSub) {
-              innerSub = operate({
-                destination,
-                complete: () => {
-                  innerSub = null;
-                  isComplete && destination.complete();
-                },
-              });
-              innerFrom(project(outerValue, index++)).subscribe(innerSub);
-            }
-          },
-          complete: () => {
-            isComplete = true;
-            !innerSub && destination.complete();
-          },
-        })
-      );
-    });
+  return fromSource((source, destination) => {
+    let index = 0;
+    let innerSub: Subscriber<T> | null = null;
+    let isComplete = false;
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (outerValue) => {
+          if (!innerSub) {
+            innerSub = toDestination({
+              destination,
+              complete: () => {
+                innerSub = null;
+                isComplete && destination.complete();
+              },
+            });
+            innerFrom(project(outerValue, index++)).subscribe(innerSub);
+          }
+        },
+        complete: () => {
+          isComplete = true;
+          !innerSub && destination.complete();
+        },
+      })
+    );
+  });
 }

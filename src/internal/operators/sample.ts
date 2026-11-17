@@ -1,7 +1,6 @@
 import { innerFrom } from '../observable/innerFrom';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
 
 /**
@@ -45,32 +44,31 @@ import { noop } from '../util/noop';
  * Observable emits value or completes.
  */
 export function sample<T>(notifier: ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let hasValue = false;
-      let lastValue: T | null = null;
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => {
-            hasValue = true;
-            lastValue = value;
-          },
-        })
-      );
-      innerFrom(notifier).subscribe(
-        operate({
-          destination,
-          next: () => {
-            if (hasValue) {
-              hasValue = false;
-              const value = lastValue!;
-              lastValue = null;
-              destination.next(value);
-            }
-          },
-          complete: noop,
-        })
-      );
-    });
+  return fromSource((source, destination) => {
+    let hasValue = false;
+    let lastValue: T | null = null;
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => {
+          hasValue = true;
+          lastValue = value;
+        },
+      })
+    );
+    innerFrom(notifier).subscribe(
+      toDestination({
+        destination,
+        next: () => {
+          if (hasValue) {
+            hasValue = false;
+            const value = lastValue!;
+            lastValue = null;
+            destination.next(value);
+          }
+        },
+        complete: noop,
+      })
+    );
+  });
 }

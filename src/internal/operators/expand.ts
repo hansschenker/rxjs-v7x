@@ -1,5 +1,5 @@
+import { fromSource } from '../operate';
 import { OperatorFunction, ObservableInput, ObservedValueOf, SchedulerLike } from '../types';
-import { Observable } from '../Observable';
 import { mergeInternals } from './mergeInternals';
 
 /* tslint:disable:max-line-length */
@@ -76,21 +76,20 @@ export function expand<T, O extends ObservableInput<unknown>>(
   scheduler?: SchedulerLike
 ): OperatorFunction<T, ObservedValueOf<O>> {
   concurrent = (concurrent || 0) < 1 ? Infinity : concurrent;
-  return (source) =>
-    new Observable((destination) =>
-      mergeInternals(
-        // General merge params
-        source,
-        destination,
-        project,
-        concurrent,
+  return fromSource((source, destination) =>
+    mergeInternals(
+      // General merge params
+      source,
+      destination,
+      project,
+      concurrent,
 
-        // onBeforeNext
-        undefined,
+      // onBeforeNext
+      undefined,
 
-        // Expand-specific
-        true, // Use expand path
-        scheduler // Inner subscription scheduler
-      )
-    );
+      // Expand-specific
+      true, // Use expand path
+      scheduler // Inner subscription scheduler
+    )
+  );
 }

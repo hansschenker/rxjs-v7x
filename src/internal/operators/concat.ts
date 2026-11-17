@@ -1,5 +1,5 @@
+import { fromSource } from '../operate';
 import { ObservableInputTuple, OperatorFunction, SchedulerLike } from '../types';
-import { Observable } from '../Observable';
 import { concatAll } from './concatAll';
 import { popScheduler } from '../util/args';
 import { from } from '../observable/from';
@@ -16,8 +16,7 @@ export function concat<T, A extends readonly unknown[]>(
  */
 export function concat<T, R>(...args: any[]): OperatorFunction<T, R> {
   const scheduler = popScheduler(args);
-  return (source) =>
-    new Observable((destination) => {
-      concatAll()(from([source, ...args], scheduler)).subscribe(destination);
-    });
+  return fromSource((source, destination) => {
+    concatAll()(from([source, ...args], scheduler)).subscribe(destination);
+  });
 }

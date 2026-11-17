@@ -4,7 +4,7 @@ import { EmptyError } from '../util/EmptyError';
 import { MonoTypeOperatorFunction, OperatorFunction, TruthyTypesOf } from '../types';
 import { SequenceError } from '../util/SequenceError';
 import { NotFoundError } from '../util/NotFoundError';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 
 export function single<T>(predicate: BooleanConstructor): OperatorFunction<T, TruthyTypesOf<T>>;
 export function single<T>(predicate?: (value: T, index: number, source: Observable<T>) => boolean): MonoTypeOperatorFunction<T>;
@@ -90,32 +90,31 @@ export function single<T>(predicate?: (value: T, index: number, source: Observab
  * emitted by the source Observable that matches the predicate.
  */
 export function single<T>(predicate?: (value: T, index: number, source: Observable<T>) => boolean): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let hasValue = false;
-      let singleValue: T;
-      let seenValue = false;
-      let index = 0;
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => {
-            seenValue = true;
-            if (!predicate || predicate(value, index++, source)) {
-              hasValue && destination.error(new SequenceError('Too many matching values'));
-              hasValue = true;
-              singleValue = value;
-            }
-          },
-          complete: () => {
-            if (hasValue) {
-              destination.next(singleValue);
-              destination.complete();
-            } else {
-              destination.error(seenValue ? new NotFoundError('No matching values') : new EmptyError());
-            }
-          },
-        })
-      );
-    });
+  return fromSource((source, destination) => {
+    let hasValue = false;
+    let singleValue: T;
+    let seenValue = false;
+    let index = 0;
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => {
+          seenValue = true;
+          if (!predicate || predicate(value, index++, source)) {
+            hasValue && destination.error(new SequenceError('Too many matching values'));
+            hasValue = true;
+            singleValue = value;
+          }
+        },
+        complete: () => {
+          if (hasValue) {
+            destination.next(singleValue);
+            destination.complete();
+          } else {
+            destination.error(seenValue ? new NotFoundError('No matching values') : new EmptyError());
+          }
+        },
+      })
+    );
+  });
 }

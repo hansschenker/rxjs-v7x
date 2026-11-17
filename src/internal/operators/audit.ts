@@ -1,8 +1,7 @@
 import { Subscriber } from '../Subscriber';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
 
-import { operate } from '../operate';
-import { Observable } from '../Observable';
+import { fromSource, toDestination } from '../operate';
 import { innerFrom } from '../observable/innerFrom';
 
 /**
@@ -51,51 +50,50 @@ import { innerFrom } from '../observable/innerFrom';
  * emissions from the source Observable.
  */
 export function audit<T>(durationSelector: (value: T) => ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let hasValue = false;
-      let lastValue: T | null = null;
-      let durationSubscriber: Subscriber<any> | null = null;
-      let isComplete = false;
+  return fromSource((source, destination) => {
+    let hasValue = false;
+    let lastValue: T | null = null;
+    let durationSubscriber: Subscriber<any> | null = null;
+    let isComplete = false;
 
-      const endDuration = () => {
-        durationSubscriber?.unsubscribe();
-        durationSubscriber = null;
-        if (hasValue) {
-          hasValue = false;
-          const value = lastValue!;
-          lastValue = null;
-          destination.next(value);
-        }
-        isComplete && destination.complete();
-      };
+    const endDuration = () => {
+      durationSubscriber?.unsubscribe();
+      durationSubscriber = null;
+      if (hasValue) {
+        hasValue = false;
+        const value = lastValue!;
+        lastValue = null;
+        destination.next(value);
+      }
+      isComplete && destination.complete();
+    };
 
-      const cleanupDuration = () => {
-        durationSubscriber = null;
-        isComplete && destination.complete();
-      };
+    const cleanupDuration = () => {
+      durationSubscriber = null;
+      isComplete && destination.complete();
+    };
 
-      source.subscribe(
-        operate({
-          destination,
-          next: (value) => {
-            hasValue = true;
-            lastValue = value;
-            if (!durationSubscriber) {
-              innerFrom(durationSelector(value)).subscribe(
-                (durationSubscriber = operate({
-                  destination,
-                  next: endDuration,
-                  complete: cleanupDuration,
-                }))
-              );
-            }
-          },
-          complete: () => {
-            isComplete = true;
-            (!hasValue || !durationSubscriber || durationSubscriber.closed) && destination.complete();
-          },
-        })
-      );
-    });
+    source.subscribe(
+      toDestination({
+        destination,
+        next: (value) => {
+          hasValue = true;
+          lastValue = value;
+          if (!durationSubscriber) {
+            innerFrom(durationSelector(value)).subscribe(
+              (durationSubscriber = toDestination({
+                destination,
+                next: endDuration,
+                complete: cleanupDuration,
+              }))
+            );
+          }
+        },
+        complete: () => {
+          isComplete = true;
+          (!hasValue || !durationSubscriber || durationSubscriber.closed) && destination.complete();
+        },
+      })
+    );
+  });
 }

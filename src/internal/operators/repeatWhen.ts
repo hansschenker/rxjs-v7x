@@ -4,7 +4,7 @@ import { Subject } from '../Subject';
 import { Subscription } from '../Subscription';
 
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
-import { operate } from '../operate';
+import { fromSource, toDestination } from '../operate';
 
 /**
  * Returns an Observable that mirrors the source Observable with the exception of a `complete`. If the source
@@ -41,88 +41,87 @@ import { operate } from '../operate';
  * Instead of `repeatWhen(() => notify$)`, use: `repeat({ delay: () => notify$ })`.
  */
 export function repeatWhen<T>(notifier: (notifications: Observable<void>) => ObservableInput<any>): MonoTypeOperatorFunction<T> {
-  return (source) =>
-    new Observable((destination) => {
-      let innerSub: Subscription | null;
-      let syncResub = false;
-      let completions$: Subject<void>;
-      let isNotifierComplete = false;
-      let isMainComplete = false;
+  return fromSource((source, destination) => {
+    let innerSub: Subscription | null;
+    let syncResub = false;
+    let completions$: Subject<void>;
+    let isNotifierComplete = false;
+    let isMainComplete = false;
 
-      /**
-       * Checks to see if we can complete the result, completes it, and returns `true` if it was completed.
-       */
-      const checkComplete = () => isMainComplete && isNotifierComplete && (destination.complete(), true);
-      /**
-       * Gets the subject to send errors through. If it doesn't exist,
-       * we know we need to setup the notifier.
-       */
-      const getCompletionSubject = () => {
-        if (!completions$) {
-          completions$ = new Subject();
+    /**
+     * Checks to see if we can complete the result, completes it, and returns `true` if it was completed.
+     */
+    const checkComplete = () => isMainComplete && isNotifierComplete && (destination.complete(), true);
+    /**
+     * Gets the subject to send errors through. If it doesn't exist,
+     * we know we need to setup the notifier.
+     */
+    const getCompletionSubject = () => {
+      if (!completions$) {
+        completions$ = new Subject();
 
-          // If the call to `notifier` throws, it will be caught by the subscriber created with `operate`
-          // In the main subscription -- in `subscribeForRepeatWhen`.
-          innerFrom(notifier(completions$)).subscribe(
-            operate({
-              destination,
-              next: () => {
-                if (innerSub) {
-                  subscribeForRepeatWhen();
-                } else {
-                  // If we don't have an innerSub yet, that's because the inner subscription
-                  // call hasn't even returned yet. We've arrived here synchronously.
-                  // So we flag that we want to resub, such that we can ensure finalization
-                  // happens before we resubscribe.
-                  syncResub = true;
-                }
-              },
-              complete: () => {
-                isNotifierComplete = true;
-                checkComplete();
-              },
-            })
-          );
-        }
-        return completions$;
-      };
-
-      const subscribeForRepeatWhen = () => {
-        isMainComplete = false;
-
-        innerSub = source.subscribe(
-          operate({
+        // If the call to `notifier` throws, it will be caught by the subscriber created with `operate`
+        // In the main subscription -- in `subscribeForRepeatWhen`.
+        innerFrom(notifier(completions$)).subscribe(
+          toDestination({
             destination,
+            next: () => {
+              if (innerSub) {
+                subscribeForRepeatWhen();
+              } else {
+                // If we don't have an innerSub yet, that's because the inner subscription
+                // call hasn't even returned yet. We've arrived here synchronously.
+                // So we flag that we want to resub, such that we can ensure finalization
+                // happens before we resubscribe.
+                syncResub = true;
+              }
+            },
             complete: () => {
-              isMainComplete = true;
-              // Check to see if we are complete, and complete if so.
-              // If we are not complete. Get the subject. This calls the `notifier` function.
-              // If that function fails, it will throw and `.next()` will not be reached on this
-              // line. The thrown error is caught by the _complete handler in this
-              // subscriber created with `operate` and handled appropriately.
-              !checkComplete() && getCompletionSubject().next();
+              isNotifierComplete = true;
+              checkComplete();
             },
           })
         );
+      }
+      return completions$;
+    };
 
-        if (syncResub) {
-          // Ensure that the inner subscription is torn down before
-          // moving on to the next subscription in the synchronous case.
-          // If we don't do this here, all inner subscriptions will not be
-          // torn down until the entire observable is done.
-          innerSub.unsubscribe();
-          // It is important to null this out. Not only to free up memory, but
-          // to make sure code above knows we are in a subscribing state to
-          // handle synchronous resubscription.
-          innerSub = null;
-          // We may need to do this multiple times, so reset the flags.
-          syncResub = false;
-          // Resubscribe
-          subscribeForRepeatWhen();
-        }
-      };
+    const subscribeForRepeatWhen = () => {
+      isMainComplete = false;
 
-      // Start the subscription
-      subscribeForRepeatWhen();
-    });
+      innerSub = source.subscribe(
+        toDestination({
+          destination,
+          complete: () => {
+            isMainComplete = true;
+            // Check to see if we are complete, and complete if so.
+            // If we are not complete. Get the subject. This calls the `notifier` function.
+            // If that function fails, it will throw and `.next()` will not be reached on this
+            // line. The thrown error is caught by the _complete handler in this
+            // subscriber created with `operate` and handled appropriately.
+            !checkComplete() && getCompletionSubject().next();
+          },
+        })
+      );
+
+      if (syncResub) {
+        // Ensure that the inner subscription is torn down before
+        // moving on to the next subscription in the synchronous case.
+        // If we don't do this here, all inner subscriptions will not be
+        // torn down until the entire observable is done.
+        innerSub.unsubscribe();
+        // It is important to null this out. Not only to free up memory, but
+        // to make sure code above knows we are in a subscribing state to
+        // handle synchronous resubscription.
+        innerSub = null;
+        // We may need to do this multiple times, so reset the flags.
+        syncResub = false;
+        // Resubscribe
+        subscribeForRepeatWhen();
+      }
+    };
+
+    // Start the subscription
+    subscribeForRepeatWhen();
+  });
 }
