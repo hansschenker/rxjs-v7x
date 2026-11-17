@@ -1,7 +1,7 @@
 import { OperatorFunction, ObservableInput } from '../types';
 import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 
 /**
  * Buffers the source Observable values until `closingNotifier` emits.
@@ -59,7 +59,7 @@ export function buffer<T>(closingNotifier: ObservableInput<any>): OperatorFuncti
     );
 
     // Subscribe to the closing notifier.
-    innerFrom(closingNotifier).subscribe(
+    toObservableFrom(closingNotifier).subscribe(
       toDestination({
         destination,
         next: () => {

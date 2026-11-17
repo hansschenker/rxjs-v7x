@@ -1,4 +1,4 @@
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
 import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
@@ -56,7 +56,7 @@ export function sample<T>(notifier: ObservableInput<any>): MonoTypeOperatorFunct
         },
       })
     );
-    innerFrom(notifier).subscribe(
+    toObservableFrom(notifier).subscribe(
       toDestination({
         destination,
         next: () => {

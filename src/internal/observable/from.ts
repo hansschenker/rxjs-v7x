@@ -1,7 +1,7 @@
 import { Observable } from '../Observable';
 import { ObservableInput, SchedulerLike, ObservedValueOf } from '../types';
 import { scheduled } from '../scheduled/scheduled';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 
 export function from<O extends ObservableInput<any>>(input: O): Observable<ObservedValueOf<O>>;
 /** @deprecated The `scheduler` parameter will be removed in v8. Use `scheduled`. Details: https://rxjs.dev/deprecations/scheduler-argument */
@@ -100,5 +100,5 @@ export function from<O extends ObservableInput<any>>(input: O, scheduler: Schedu
  * @return An Observable converted from {@link ObservableInput}.
  */
 export function from<T>(input: ObservableInput<T>, scheduler?: SchedulerLike): Observable<T> {
-  return scheduler ? scheduled(input, scheduler) : innerFrom(input);
+  return scheduler ? scheduled(input, scheduler) : toObservableFrom(input);
 }

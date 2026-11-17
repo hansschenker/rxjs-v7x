@@ -2,7 +2,7 @@ import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction } from '../types';
 import { fromSource, toDestination } from '../operate';
 import { noop } from '../util/noop';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 
 /**
  * Buffers the source Observable values, using a factory function of closing
@@ -65,7 +65,7 @@ export function bufferWhen<T>(closingSelector: () => ObservableInput<any>): Oper
       b && destination.next(b);
 
       // Get a new closing notifier and subscribe to it.
-      innerFrom(closingSelector()).subscribe(
+      toObservableFrom(closingSelector()).subscribe(
         (closingSubscriber = toDestination({
           destination,
           next: openBuffer,

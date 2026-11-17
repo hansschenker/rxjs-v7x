@@ -1,6 +1,6 @@
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
 import { fromSource, toDestination } from '../operate';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { noop } from '../util/noop';
 
 /**
@@ -61,7 +61,7 @@ export function skipUntil<T>(notifier: ObservableInput<any>): MonoTypeOperatorFu
       complete: noop,
     });
 
-    innerFrom(notifier).subscribe(skipSubscriber);
+    toObservableFrom(notifier).subscribe(skipSubscriber);
 
     source.subscribe(
       toDestination({

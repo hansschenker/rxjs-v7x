@@ -101,9 +101,30 @@ Edge case, compared with RxJS 8: `8.0.0-alpha.14` removed `thisArg` from `map`, 
 `findIndex`, but `filter` and the `partition` creation function still accept it there. rxjs-v7x
 removes it from all six.
 
+## Clearer internal names
+
+Two internal helpers are renamed so that their name says what they do. Neither is public API.
+
+| RxJS 7.8.2      | rxjs-v7x                                 | What it does                                                                                  |
+| --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `scanInternals` | `accumulate(..., 'each' \| 'final')`     | Accumulates a state; emits it after every value (`scan`) or once at completion (`reduce`)    |
+| `innerFrom`     | `toObservableFrom`                       | Turns any `ObservableInput` (Promise, array, iterable, ...) into an `Observable`             |
+
+`scan` and `reduce` now read:
+
+```ts
+return fromSource(accumulate(accumulator, seed, hasSeed, 'each')); // scan
+return fromSource(accumulate(accumulator, seed, hasSeed, 'final')); // reduce
+```
+
+`innerFrom` is used for much more than inner Observables: the notifier of `takeUntil`, the inputs of
+`withLatestFrom`, the sources of `combineLatest`. `toObservableFrom` is deliberately not merged into
+the public creation function `from`, which users call to start a pipeline. RxJS 8 merges the two into
+`from`; rxjs-v7x keeps the internal conversion and the creation function apart.
+
 ## How this fork was built
 
-The change is five commits on top of the `7.8.2` tag:
+The change is eight commits on top of the `7.8.2` tag:
 
 1. `feat(operate)`: `Subscriber` accepts `SubscriberOverrides` (`next`, `error`, `complete`,
    `finalize`) as a second constructor argument, and the public `operate({ destination, ... })`
@@ -121,6 +142,13 @@ The change is five commits on top of the `7.8.2` tag:
 5. `refactor!`: the deprecated `thisArg` parameter is removed from `map`, `filter`, `every`,
    `find`, `findIndex` and `partition`, together with its overloads, its tests and the `thisArg`
    argument of the internal `createFind` and `not` helpers.
+6. `refactor(operators)`: helpers that already return a `(source, destination) => ...` function are
+   passed to `fromSource` directly: `fromSource(run)` instead of
+   `fromSource((source, destination) => run(source, destination))`, in `scan`, `reduce`, `find` and
+   `findIndex`.
+7. `refactor(operators)`: `scanInternals` is renamed to `accumulate`, and its two booleans become one
+   `'each' | 'final'` argument.
+8. `refactor`: `innerFrom` is renamed to `toObservableFrom`.
 
 Because no operator calls `lift`, the built-in operators accept any object whose `subscribe`
 takes an observer and returns something unsubscribable, with no `from()` required.

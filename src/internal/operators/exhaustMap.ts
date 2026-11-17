@@ -2,7 +2,7 @@ import { Observable } from '../Observable';
 import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { map } from './map';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { fromSource, toDestination } from '../operate';
 
 /* tslint:disable:max-line-length */
@@ -71,7 +71,7 @@ export function exhaustMap<T, R, O extends ObservableInput<any>>(
   if (resultSelector) {
     // DEPRECATED PATH
     return (source: Observable<T>) =>
-      source.pipe(exhaustMap((a, i) => innerFrom(project(a, i)).pipe(map((b: any, ii: any) => resultSelector(a, b, i, ii)))));
+      source.pipe(exhaustMap((a, i) => toObservableFrom(project(a, i)).pipe(map((b: any, ii: any) => resultSelector(a, b, i, ii)))));
   }
   return fromSource((source, destination) => {
     let index = 0;
@@ -89,7 +89,7 @@ export function exhaustMap<T, R, O extends ObservableInput<any>>(
                 isComplete && destination.complete();
               },
             });
-            innerFrom(project(outerValue, index++)).subscribe(innerSub);
+            toObservableFrom(project(outerValue, index++)).subscribe(innerSub);
           }
         },
         complete: () => {

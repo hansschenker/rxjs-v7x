@@ -3,7 +3,7 @@ import { ObservableInputTuple } from '../types';
 import { argsOrArgArray } from '../util/argsOrArgArray';
 import { toDestination } from '../operate';
 import { noop } from '../util/noop';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 
 export function onErrorResumeNext<A extends readonly unknown[]>(sources: [...ObservableInputTuple<A>]): Observable<A[number]>;
 export function onErrorResumeNext<A extends readonly unknown[]>(...sources: [...ObservableInputTuple<A>]): Observable<A[number]>;
@@ -81,7 +81,7 @@ export function onErrorResumeNext<A extends readonly unknown[]>(
       if (sourceIndex < nextSources.length) {
         let nextSource: Observable<A[number]>;
         try {
-          nextSource = innerFrom(nextSources[sourceIndex++]);
+          nextSource = toObservableFrom(nextSources[sourceIndex++]);
         } catch (err) {
           subscribeNext();
           return;

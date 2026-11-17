@@ -1,5 +1,5 @@
 import { Observable } from '../Observable';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 import { Subscription } from '../Subscription';
 import { ObservableInput, ObservableInputTuple } from '../types';
 import { argsOrArgArray } from '../util/argsOrArgArray';
@@ -51,7 +51,9 @@ export function race<T extends readonly unknown[]>(...inputs: [...ObservableInpu
 export function race<T>(...sources: (ObservableInput<T> | ObservableInput<T>[])[]): Observable<any> {
   sources = argsOrArgArray(sources);
   // If only one source was passed, just return it. Otherwise return the race.
-  return sources.length === 1 ? innerFrom(sources[0] as ObservableInput<T>) : new Observable<T>(raceInit(sources as ObservableInput<T>[]));
+  return sources.length === 1
+    ? toObservableFrom(sources[0] as ObservableInput<T>)
+    : new Observable<T>(raceInit(sources as ObservableInput<T>[]));
 }
 
 /**
@@ -69,7 +71,7 @@ export function raceInit<T>(sources: ObservableInput<T>[]) {
     // stop before it subscribes to any more.
     for (let i = 0; subscriptions && !subscriber.closed && i < sources.length; i++) {
       subscriptions.push(
-        innerFrom(sources[i] as ObservableInput<T>).subscribe(
+        toObservableFrom(sources[i] as ObservableInput<T>).subscribe(
           toDestination({
             destination: subscriber,
             next: (value) => {

@@ -12,8 +12,25 @@ import { isFunction } from '../util/isFunction';
 import { reportUnhandledError } from '../util/reportUnhandledError';
 import { observable as Symbol_observable } from '../symbol/observable';
 
-export function innerFrom<O extends ObservableInput<any>>(input: O): Observable<ObservedValueOf<O>>;
-export function innerFrom<T>(input: ObservableInput<T>): Observable<T> {
+/**
+ * Turns any {@link ObservableInput} into an {@link Observable}. Internal: operators and creation
+ * functions use it to adopt whatever input they receive, such as the Observable returned by a
+ * `mergeMap` projection, the notifier of `takeUntil`, or the sources of `combineLatest`.
+ *
+ * - An `Observable` is returned as it is, not wrapped.
+ * - An interop Observable, array-like, Promise, async iterable, iterable or `ReadableStream` is
+ *   converted.
+ * - Anything else throws a `TypeError`.
+ *
+ * RxJS 7.8.2 calls it `innerFrom`, although most callers do not pass an inner Observable. It is
+ * deliberately not the public creation function {@link from}, which users call to start a
+ * pipeline and which also accepts a scheduler. Without a scheduler, `from(input)` calls this.
+ *
+ * @param input The input to adopt.
+ * @return An Observable of the input's values.
+ */
+export function toObservableFrom<O extends ObservableInput<any>>(input: O): Observable<ObservedValueOf<O>>;
+export function toObservableFrom<T>(input: ObservableInput<T>): Observable<T> {
   if (input instanceof Observable) {
     return input;
   }

@@ -2,7 +2,7 @@ import { Observable } from '../Observable';
 
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { Subscription } from '../Subscription';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { fromSource, toDestination } from '../operate';
 
 export function catchError<T, O extends ObservableInput<any>>(
@@ -113,7 +113,7 @@ export function catchError<T, O extends ObservableInput<any>>(
       toDestination({
         destination,
         error: (err) => {
-          handledResult = innerFrom(selector(err, catchError(selector)(source)));
+          handledResult = toObservableFrom(selector(err, catchError(selector)(source)));
           if (innerSub) {
             innerSub.unsubscribe();
             innerSub = null;

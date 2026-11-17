@@ -1,6 +1,6 @@
 import { Subscriber } from '../Subscriber';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { fromSource, toDestination } from '../operate';
 
 /* tslint:disable:max-line-length */
@@ -104,7 +104,7 @@ export function switchMap<T, R, O extends ObservableInput<any>>(
           let innerIndex = 0;
           const outerIndex = index++;
           // Start the next inner subscription
-          innerFrom(project(value, outerIndex)).subscribe(
+          toObservableFrom(project(value, outerIndex)).subscribe(
             (innerSubscriber = toDestination({
               destination,
               // When we get a new inner value, next it through. Note that this is

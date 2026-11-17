@@ -1,7 +1,7 @@
 import { fromSource } from '../operate';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { map } from './map';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { mergeInternals } from './mergeInternals';
 import { isFunction } from '../util/isFunction';
 
@@ -85,7 +85,7 @@ export function mergeMap<T, R, O extends ObservableInput<any>>(
 ): OperatorFunction<T, ObservedValueOf<O> | R> {
   if (isFunction(resultSelector)) {
     // DEPRECATED PATH
-    return mergeMap((a, i) => map((b: any, ii: number) => resultSelector(a, b, i, ii))(innerFrom(project(a, i))), concurrent);
+    return mergeMap((a, i) => map((b: any, ii: number) => resultSelector(a, b, i, ii))(toObservableFrom(project(a, i))), concurrent);
   } else if (typeof resultSelector === 'number') {
     concurrent = resultSelector;
   }

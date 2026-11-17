@@ -1,6 +1,6 @@
 import { toDestination } from '../../operate';
 import { Observable } from '../../Observable';
-import { innerFrom } from '../../observable/innerFrom';
+import { toObservableFrom } from '../../observable/toObservableFrom';
 import { ObservableInput } from '../../types';
 
 export function fromFetch<T>(
@@ -150,7 +150,7 @@ export function fromFetch<T>(
           // If we have a selector function, use it to project our response.
           // Note that any error that comes from our selector will be
           // sent to the promise `catch` below and handled.
-          innerFrom(selector(response)).subscribe(
+          toObservableFrom(selector(response)).subscribe(
             toDestination({
               destination: subscriber,
               // The projected response is complete.

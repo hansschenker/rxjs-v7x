@@ -2,7 +2,7 @@ import { Subscription } from '../Subscription';
 
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
 import { fromSource, toDestination } from '../operate';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 
 /**
  * An object interface used by {@link throttle} or {@link throttleTime} that ensure
@@ -103,7 +103,7 @@ export function throttle<T>(durationSelector: (value: T) => ObservableInput<any>
     };
 
     const startThrottle = (value: T) =>
-      (throttled = innerFrom(durationSelector(value)).subscribe(
+      (throttled = toObservableFrom(durationSelector(value)).subscribe(
         toDestination({
           destination,
           next: endThrottling,

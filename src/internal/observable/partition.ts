@@ -2,7 +2,7 @@ import { not } from '../util/not';
 import { filter } from '../operators/filter';
 import { ObservableInput } from '../types';
 import { Observable } from '../Observable';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 
 export function partition<T, U extends T>(
   source: ObservableInput<T>,
@@ -63,5 +63,5 @@ export function partition<T>(source: ObservableInput<T>, predicate: (value: T, i
  * predicate, and another with values that did not pass the predicate.
  */
 export function partition<T>(source: ObservableInput<T>, predicate: (value: T, index: number) => boolean): [Observable<T>, Observable<T>] {
-  return [filter(predicate)(innerFrom(source)), filter(not(predicate))(innerFrom(source))] as [Observable<T>, Observable<T>];
+  return [filter(predicate)(toObservableFrom(source)), filter(not(predicate))(toObservableFrom(source))] as [Observable<T>, Observable<T>];
 }

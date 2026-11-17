@@ -1,7 +1,7 @@
 import { Observable } from '../Observable';
 import { ObservableInput, ObservableInputTuple, SchedulerLike } from '../types';
 import { mergeAll } from '../operators/mergeAll';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 import { EMPTY } from './empty';
 import { popNumber, popScheduler } from '../util/args';
 import { from } from './from';
@@ -94,7 +94,7 @@ export function merge(...args: (ObservableInput<unknown> | number | SchedulerLik
       EMPTY
     : sources.length === 1
     ? // One source? Just return it.
-      innerFrom(sources[0])
+      toObservableFrom(sources[0])
     : // Merge all sources
       mergeAll(concurrent)(from(sources, scheduler));
 }

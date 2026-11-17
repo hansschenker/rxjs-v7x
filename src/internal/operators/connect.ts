@@ -2,7 +2,7 @@ import { fromSource } from '../operate';
 import { OperatorFunction, ObservableInput, ObservedValueOf, SubjectLike } from '../types';
 import { Observable } from '../Observable';
 import { Subject } from '../Subject';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { fromSubscribable } from '../observable/fromSubscribable';
 
 /**
@@ -103,7 +103,7 @@ export function connect<T, O extends ObservableInput<unknown>>(
   const { connector } = config;
   return fromSource((source, destination) => {
     const subject = connector();
-    innerFrom(selector(fromSubscribable(subject))).subscribe(destination);
+    toObservableFrom(selector(fromSubscribable(subject))).subscribe(destination);
     destination.add(source.subscribe(subject));
   });
 }

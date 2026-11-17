@@ -1,6 +1,6 @@
 import { Observable } from '../Observable';
 import { Unsubscribable, ObservableInput, ObservedValueOf } from '../types';
-import { innerFrom } from './innerFrom';
+import { toObservableFrom } from './toObservableFrom';
 import { EMPTY } from './empty';
 
 /**
@@ -36,7 +36,7 @@ export function using<T extends ObservableInput<any>>(
   return new Observable<ObservedValueOf<T>>((subscriber) => {
     const resource = resourceFactory();
     const result = observableFactory(resource);
-    const source = result ? innerFrom(result) : EMPTY;
+    const source = result ? toObservableFrom(result) : EMPTY;
     source.subscribe(subscriber);
     return () => {
       // NOTE: Optional chaining did not work here.

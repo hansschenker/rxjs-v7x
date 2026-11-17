@@ -1,4 +1,4 @@
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { Observable } from '../Observable';
 import { mergeMap } from '../operators/mergeMap';
 import { isArrayLike } from '../util/isArrayLike';
@@ -277,7 +277,7 @@ export function fromEvent<T>(
   if (!add) {
     if (isArrayLike(target)) {
       return mergeMap((subTarget: any) => fromEvent(subTarget, eventName, options as EventListenerOptions))(
-        innerFrom(target)
+        toObservableFrom(target)
       ) as Observable<T>;
     }
   }

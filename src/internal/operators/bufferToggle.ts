@@ -1,7 +1,7 @@
 import { Subscription } from '../Subscription';
 import { OperatorFunction, ObservableInput } from '../types';
 import { fromSource, toDestination } from '../operate';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { noop } from '../util/noop';
 import { arrRemove } from '../util/arrRemove';
 
@@ -56,7 +56,7 @@ export function bufferToggle<T, O>(
     const buffers: T[][] = [];
 
     // Subscribe to the openings notifier first
-    innerFrom(openings).subscribe(
+    toObservableFrom(openings).subscribe(
       toDestination({
         destination,
         next: (openValue) => {
@@ -74,7 +74,7 @@ export function bufferToggle<T, O>(
 
           // The line below will add the subscription to the parent subscriber *and* the closing subscription.
           closingSubscription.add(
-            innerFrom(closingSelector(openValue)).subscribe(
+            toObservableFrom(closingSelector(openValue)).subscribe(
               toDestination({
                 destination,
                 next: emitBuffer,

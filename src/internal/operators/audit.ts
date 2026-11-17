@@ -2,7 +2,7 @@ import { Subscriber } from '../Subscriber';
 import { MonoTypeOperatorFunction, ObservableInput } from '../types';
 
 import { fromSource, toDestination } from '../operate';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 
 /**
  * Ignores source values for a duration determined by another Observable, then
@@ -80,7 +80,7 @@ export function audit<T>(durationSelector: (value: T) => ObservableInput<any>): 
           hasValue = true;
           lastValue = value;
           if (!durationSubscriber) {
-            innerFrom(durationSelector(value)).subscribe(
+            toObservableFrom(durationSelector(value)).subscribe(
               (durationSubscriber = toDestination({
                 destination,
                 next: endDuration,

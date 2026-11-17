@@ -1,4 +1,4 @@
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { Subject } from '../Subject';
 import { SafeSubscriber } from '../Subscriber';
 import { Subscription } from '../Subscription';
@@ -236,7 +236,7 @@ export function share<T>(options: ShareConfig<T> = {}): MonoTypeOperatorFunction
             dest.complete();
           },
         });
-        innerFrom(wrapperSource).subscribe(connection);
+        toObservableFrom(wrapperSource).subscribe(connection);
       }
     });
   };
@@ -263,5 +263,5 @@ function handleReset<T extends unknown[] = never[]>(
     },
   });
 
-  return innerFrom(on(...args)).subscribe(onSubscriber);
+  return toObservableFrom(on(...args)).subscribe(onSubscriber);
 }

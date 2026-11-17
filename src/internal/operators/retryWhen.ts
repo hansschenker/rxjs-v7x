@@ -1,5 +1,5 @@
 import { Observable } from '../Observable';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 import { Subject } from '../Subject';
 import { Subscription } from '../Subscription';
 
@@ -76,7 +76,7 @@ export function retryWhen<T>(notifier: (errors: Observable<any>) => ObservableIn
           error: (err) => {
             if (!errors$) {
               errors$ = new Subject();
-              innerFrom(notifier(errors$)).subscribe(
+              toObservableFrom(notifier(errors$)).subscribe(
                 toDestination({
                   destination,
                   next: () =>

@@ -3,7 +3,7 @@ import { Observable } from '../Observable';
 import { Subject } from '../Subject';
 import { ObservableInput, OperatorFunction } from '../types';
 import { fromSource, toDestination } from '../operate';
-import { innerFrom } from '../observable/innerFrom';
+import { toObservableFrom } from '../observable/toObservableFrom';
 
 /**
  * Branch out the source Observable values as a nested Observable using a
@@ -85,7 +85,7 @@ export function windowWhen<T>(closingSelector: () => ObservableInput<any>): Oper
       // Get our closing notifier.
       let closingNotifier: Observable<any>;
       try {
-        closingNotifier = innerFrom(closingSelector());
+        closingNotifier = toObservableFrom(closingSelector());
       } catch (err) {
         handleError(err);
         return;
