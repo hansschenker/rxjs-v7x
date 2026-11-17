@@ -1,6 +1,6 @@
 import { OperatorFunction, ObservableInput } from '../types';
 import { zip } from '../observable/zip';
-import { joinAllInternals } from './joinAllInternals';
+import { collectAndJoin } from './collectAndJoin';
 
 /**
  * Collects all observable inner sources from the source, once the source completes,
@@ -16,5 +16,5 @@ export function zipAll<T, R>(project: (...values: T[]) => R): OperatorFunction<O
 export function zipAll<R>(project: (...values: Array<any>) => R): OperatorFunction<any, R>;
 
 export function zipAll<T, R>(project?: (...values: T[]) => R) {
-  return joinAllInternals(zip, project);
+  return collectAndJoin(zip, project);
 }

@@ -6,21 +6,47 @@ import { mapOneOrManyArgs } from '../util/mapOneOrManyArgs';
 import { observeOn } from '../operators/observeOn';
 import { AsyncSubject } from '../AsyncSubject';
 
-export function bindCallbackInternals(
-  isNodeStyle: boolean,
+/**
+ * How the bound function reports its result through its callback:
+ *
+ * - `'callback'`: every callback argument is a result. Used by {@link bindCallback}.
+ * - `'node'`: the first callback argument is an error, the Node.js convention, and the rest are
+ *   results. Used by {@link bindNodeCallback}.
+ */
+export type CallbackStyle = 'callback' | 'node';
+
+/**
+ * Turns a function that reports its result through a callback into a function that returns an
+ * Observable. Shared by {@link bindCallback} and {@link bindNodeCallback}:
+ *
+ * ```ts
+ * return bindToObservable(callbackFunc, 'callback', resultSelector, scheduler); // bindCallback
+ * return bindToObservable(callbackFunc, 'node', resultSelector, scheduler); // bindNodeCallback
+ * ```
+ *
+ * The original function is called once, on the first subscription. Its result is kept in an
+ * {@link AsyncSubject} and replayed to every subscriber, including later ones.
+ *
+ * @param callbackFunc The function to convert. Its last argument is the callback.
+ * @param style How the callback reports the result: plain, or Node.js style with an error first.
+ * @param resultSelector Optional: maps the callback's arguments to the emitted value. A scheduler
+ * passed in this position is used as the scheduler.
+ * @param scheduler Optional: subscribes and emits on this scheduler.
+ */
+export function bindToObservable(
   callbackFunc: any,
+  style: CallbackStyle,
   resultSelector?: any,
   scheduler?: SchedulerLike
 ): (...args: any[]) => Observable<unknown> {
+  const isNodeStyle = style === 'node';
   if (resultSelector) {
     if (isScheduler(resultSelector)) {
       scheduler = resultSelector;
     } else {
       // The user provided a result selector.
       return function (this: any, ...args: any[]) {
-        return (bindCallbackInternals(isNodeStyle, callbackFunc, scheduler) as any)
-          .apply(this, args)
-          .pipe(mapOneOrManyArgs(resultSelector as any));
+        return (bindToObservable(callbackFunc, style, scheduler) as any).apply(this, args).pipe(mapOneOrManyArgs(resultSelector as any));
       };
     }
   }
@@ -29,9 +55,7 @@ export function bindCallbackInternals(
   // to compose that behavior for the user.
   if (scheduler) {
     return function (this: any, ...args: any[]) {
-      return (bindCallbackInternals(isNodeStyle, callbackFunc) as any)
-        .apply(this, args)
-        .pipe(subscribeOn(scheduler!), observeOn(scheduler!));
+      return (bindToObservable(callbackFunc, style) as any).apply(this, args).pipe(subscribeOn(scheduler!), observeOn(scheduler!));
     };
   }
 

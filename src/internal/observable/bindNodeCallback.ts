@@ -1,7 +1,7 @@
 /* @prettier */
 import { Observable } from '../Observable';
 import { SchedulerLike } from '../types';
-import { bindCallbackInternals } from './bindCallbackInternals';
+import { bindToObservable } from './bindToObservable';
 
 export function bindNodeCallback(
   callbackFunc: (...args: any[]) => void,
@@ -127,5 +127,5 @@ export function bindNodeCallback(
   resultSelector?: ((...args: any[]) => any) | SchedulerLike,
   scheduler?: SchedulerLike
 ): (...args: any[]) => Observable<any> {
-  return bindCallbackInternals(true, callbackFunc, resultSelector, scheduler);
+  return bindToObservable(callbackFunc, 'node', resultSelector, scheduler);
 }

@@ -1,6 +1,6 @@
 import { combineLatest } from '../observable/combineLatest';
 import { OperatorFunction, ObservableInput } from '../types';
-import { joinAllInternals } from './joinAllInternals';
+import { collectAndJoin } from './collectAndJoin';
 
 export function combineLatestAll<T>(): OperatorFunction<ObservableInput<T>, T[]>;
 export function combineLatestAll<T>(): OperatorFunction<any, T[]>;
@@ -46,5 +46,5 @@ export function combineLatestAll<R>(project: (...values: Array<any>) => R): Oper
  * emitted by the source Observable.
  */
 export function combineLatestAll<R>(project?: (...values: Array<any>) => R) {
-  return joinAllInternals(combineLatest, project);
+  return collectAndJoin(combineLatest, project);
 }

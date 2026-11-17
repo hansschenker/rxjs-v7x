@@ -103,13 +103,16 @@ removes it from all six.
 
 ## Clearer internal names
 
-Three internal helpers are renamed so that their name says what they do. None is public API.
+Five internal helpers are renamed so that their name says what they do. None is public API, and
+after these renames no function in rxjs-v7x is named `...Internals`.
 
 | RxJS 7.8.2      | rxjs-v7x                                 | What it does                                                                                  |
 | --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `scanInternals` | `accumulate(..., 'each' \| 'final')`     | Accumulates a state; emits it after every value (`scan`) or once at completion (`reduce`)    |
 | `innerFrom`     | `toObservableFrom`                       | Turns any `ObservableInput` (Promise, array, iterable, ...) into an `Observable`             |
 | `mergeInternals` | `mergeProjected(project, concurrent, options?)` | Projects each value to a nested Observable and merges them, at most `concurrent` at once |
+| `joinAllInternals` | `collectAndJoin(join, project?)` | Collects all nested Observables until the source completes, then joins them (`combineLatestAll`, `zipAll`) |
+| `bindCallbackInternals` | `bindToObservable(callbackFunc, 'callback' \| 'node', ...)` | Turns a function that reports through a callback into one that returns an Observable (`bindCallback`, `bindNodeCallback`) |
 
 `scan` and `reduce` now read:
 
@@ -140,7 +143,7 @@ the public creation function `from`, which users call to start a pipeline. RxJS 
 
 ## How this fork was built
 
-The change is nine commits on top of the `7.8.2` tag:
+The change is ten commits on top of the `7.8.2` tag:
 
 1. `feat(operate)`: `Subscriber` accepts `SubscriberOverrides` (`next`, `error`, `complete`,
    `finalize`) as a second constructor argument, and the public `operate({ destination, ... })`
@@ -168,6 +171,8 @@ The change is nine commits on top of the `7.8.2` tag:
 9. `refactor!`: `mergeInternals` is renamed to `mergeProjected`, returns the function for
    `fromSource`, and takes named options instead of four positional ones. The deprecated `scheduler`
    parameter of `expand` is removed.
+10. `refactor`: `joinAllInternals` is renamed to `collectAndJoin`, and `bindCallbackInternals` to
+    `bindToObservable`, whose leading boolean becomes a `'callback' | 'node'` style argument.
 
 Because no operator calls `lift`, the built-in operators accept any object whose `subscribe`
 takes an observer and returns something unsubscribable, with no `from()` required.
