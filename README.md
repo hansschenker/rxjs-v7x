@@ -103,12 +103,13 @@ removes it from all six.
 
 ## Clearer internal names
 
-Two internal helpers are renamed so that their name says what they do. Neither is public API.
+Three internal helpers are renamed so that their name says what they do. None is public API.
 
 | RxJS 7.8.2      | rxjs-v7x                                 | What it does                                                                                  |
 | --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `scanInternals` | `accumulate(..., 'each' \| 'final')`     | Accumulates a state; emits it after every value (`scan`) or once at completion (`reduce`)    |
 | `innerFrom`     | `toObservableFrom`                       | Turns any `ObservableInput` (Promise, array, iterable, ...) into an `Observable`             |
+| `mergeInternals` | `mergeProjected(project, concurrent, options?)` | Projects each value to a nested Observable and merges them, at most `concurrent` at once |
 
 `scan` and `reduce` now read:
 
@@ -117,6 +118,21 @@ return fromSource(accumulate(accumulator, seed, hasSeed, 'each')); // scan
 return fromSource(accumulate(accumulator, seed, hasSeed, 'final')); // reduce
 ```
 
+and `mergeMap` and `expand`:
+
+```ts
+return fromSource(mergeProjected(project, concurrent)); // mergeMap
+return fromSource(mergeProjected(project, concurrent, { recursive: true })); // expand
+```
+
+`mergeInternals` took eight positional parameters, the last four optional, so `mergeScan` and `expand`
+padded their calls with `undefined` and `false`. `mergeProjected` takes `project` and `concurrent`, and
+the variants pass named options: `onNestedValue` and `finalize` (`mergeScan`), `recursive` (`expand`).
+
+`expand` no longer accepts a scheduler. 7.8.2 already marked it as deprecated, to be removed in v8;
+use `subscribeOn` inside the projection instead:
+`expand((value) => fn(value).pipe(subscribeOn(scheduler)))`.
+
 `innerFrom` is used for much more than inner Observables: the notifier of `takeUntil`, the inputs of
 `withLatestFrom`, the sources of `combineLatest`. `toObservableFrom` is deliberately not merged into
 the public creation function `from`, which users call to start a pipeline. RxJS 8 merges the two into
@@ -124,7 +140,7 @@ the public creation function `from`, which users call to start a pipeline. RxJS 
 
 ## How this fork was built
 
-The change is eight commits on top of the `7.8.2` tag:
+The change is nine commits on top of the `7.8.2` tag:
 
 1. `feat(operate)`: `Subscriber` accepts `SubscriberOverrides` (`next`, `error`, `complete`,
    `finalize`) as a second constructor argument, and the public `operate({ destination, ... })`
@@ -149,6 +165,9 @@ The change is eight commits on top of the `7.8.2` tag:
 7. `refactor(operators)`: `scanInternals` is renamed to `accumulate`, and its two booleans become one
    `'each' | 'final'` argument.
 8. `refactor`: `innerFrom` is renamed to `toObservableFrom`.
+9. `refactor!`: `mergeInternals` is renamed to `mergeProjected`, returns the function for
+   `fromSource`, and takes named options instead of four positional ones. The deprecated `scheduler`
+   parameter of `expand` is removed.
 
 Because no operator calls `lift`, the built-in operators accept any object whose `subscribe`
 takes an observer and returns something unsubscribable, with no `from()` required.
@@ -157,7 +176,7 @@ Verification on TypeScript 4.2.4 (the toolchain pinned by 7.8.2): `npm run compi
 `npm run dtslint`, `npm run lint_src`, `npm run lint_spec`, `npm run test:esm`,
 `npm run test:circular`, `npm run build:global` and `node tools/prepare-package.js` all pass.
 `npm test` with the four real-timer spec files excluded (`buffer`, `delayWhen`, `skipUntil`,
-`window`) reports 3154 passing, 4 pending and the two pre-existing environment failures (`ajax`
+`window`) reports 3151 passing, 4 pending and the two pre-existing environment failures (`ajax`
 asserts V8's old `JSON.parse` message, `webSocket` expects no global `WebSocket`). The four
 real-timer files abort mocha on Windows timer granularity. On Linux they run, and `skipUntil` and
 `window` fail intermittently on the unchanged 7.8.2 code as well. `npm run build:package` and

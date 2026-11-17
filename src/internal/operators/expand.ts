@@ -1,24 +1,6 @@
 import { fromSource } from '../operate';
-import { OperatorFunction, ObservableInput, ObservedValueOf, SchedulerLike } from '../types';
-import { mergeInternals } from './mergeInternals';
-
-/* tslint:disable:max-line-length */
-export function expand<T, O extends ObservableInput<unknown>>(
-  project: (value: T, index: number) => O,
-  concurrent?: number,
-  scheduler?: SchedulerLike
-): OperatorFunction<T, ObservedValueOf<O>>;
-/**
- * @deprecated The `scheduler` parameter will be removed in v8. If you need to schedule the inner subscription,
- * use `subscribeOn` within the projection function: `expand((value) => fn(value).pipe(subscribeOn(scheduler)))`.
- * Details: Details: https://rxjs.dev/deprecations/scheduler-argument
- */
-export function expand<T, O extends ObservableInput<unknown>>(
-  project: (value: T, index: number) => O,
-  concurrent: number | undefined,
-  scheduler: SchedulerLike
-): OperatorFunction<T, ObservedValueOf<O>>;
-/* tslint:enable:max-line-length */
+import { OperatorFunction, ObservableInput, ObservedValueOf } from '../types';
+import { mergeProjected } from './mergeProjected';
 
 /**
  * Recursively projects each source value to an Observable which is merged in
@@ -63,8 +45,6 @@ export function expand<T, O extends ObservableInput<unknown>>(
  * or the output Observable, returns an Observable.
  * @param concurrent Maximum number of input Observables being subscribed to
  * concurrently.
- * @param scheduler The {@link SchedulerLike} to use for subscribing to
- * each projected inner Observable.
  * @return A function that returns an Observable that emits the source values
  * and also result of applying the projection function to each value emitted on
  * the output Observable and merging the results of the Observables obtained
@@ -72,24 +52,8 @@ export function expand<T, O extends ObservableInput<unknown>>(
  */
 export function expand<T, O extends ObservableInput<unknown>>(
   project: (value: T, index: number) => O,
-  concurrent = Infinity,
-  scheduler?: SchedulerLike
+  concurrent = Infinity
 ): OperatorFunction<T, ObservedValueOf<O>> {
   concurrent = (concurrent || 0) < 1 ? Infinity : concurrent;
-  return fromSource((source, destination) =>
-    mergeInternals(
-      // General merge params
-      source,
-      destination,
-      project,
-      concurrent,
-
-      // onBeforeNext
-      undefined,
-
-      // Expand-specific
-      true, // Use expand path
-      scheduler // Inner subscription scheduler
-    )
-  );
+  return fromSource<T, ObservedValueOf<O>>(mergeProjected(project, concurrent, { recursive: true }));
 }

@@ -1,6 +1,6 @@
 import { fromSource } from '../operate';
 import { ObservableInput, OperatorFunction } from '../types';
-import { mergeInternals } from './mergeInternals';
+import { mergeProjected } from './mergeProjected';
 
 /**
  * Applies an accumulator function over the source Observable where the
@@ -76,17 +76,11 @@ export function mergeScan<T, R>(
     // The accumulated state.
     let state = seed;
 
-    return mergeInternals(
-      source,
-      destination,
-      (value, index) => accumulator(state, value, index),
-      concurrent,
-      (value) => {
+    return mergeProjected((value: T, index: number) => accumulator(state, value, index), concurrent, {
+      onNestedValue: (value: R) => {
         state = value;
       },
-      false,
-      undefined,
-      () => (state = null!)
-    );
+      finalize: () => (state = null!),
+    })(source, destination);
   });
 }

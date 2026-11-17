@@ -2,7 +2,7 @@ import { fromSource } from '../operate';
 import { ObservableInput, OperatorFunction, ObservedValueOf } from '../types';
 import { map } from './map';
 import { toObservableFrom } from '../observable/toObservableFrom';
-import { mergeInternals } from './mergeInternals';
+import { mergeProjected } from './mergeProjected';
 import { isFunction } from '../util/isFunction';
 
 /* tslint:disable:max-line-length */
@@ -90,5 +90,5 @@ export function mergeMap<T, R, O extends ObservableInput<any>>(
     concurrent = resultSelector;
   }
 
-  return fromSource((source, destination) => mergeInternals(source, destination, project, concurrent));
+  return fromSource(mergeProjected(project, concurrent));
 }

@@ -21,8 +21,8 @@ it('should support concurrent parameter', () => {
   const o = of(1, 2, 3).pipe(expand(value => of(1), 47)); // $ExpectType Observable<number>
 });
 
-it('should support a scheduler', () => {
-  const o = of(1, 2, 3).pipe(expand(value => of(1), 47, asyncScheduler)); // $ExpectType Observable<number>
+it('should not accept a scheduler', () => {
+  const o = of(1, 2, 3).pipe(expand(value => of(1), 47, asyncScheduler)); // $ExpectError
 });
 
 it('should enforce types', () => {
@@ -40,10 +40,6 @@ it('should enforce project return type', () => {
 
 it('should enforce concurrent type', () => {
   const o = of(1, 2, 3).pipe(expand(value => of(1), 'foo')); // $ExpectError
-});
-
-it('should enforce scheduler type', () => {
-  const o = of(1, 2, 3).pipe(expand(value => of(1), 47, 'foo')); // $ExpectError
 });
 
 it('should support union types', () => {

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { expand, mergeMap, map, take, toArray } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
-import { EMPTY, Observable, of, Observer, asapScheduler, asyncScheduler, InteropObservable } from 'rxjs';
+import { EMPTY, Observable, of, Observer, InteropObservable } from 'rxjs';
 import { observableMatcher } from '../helpers/observableMatcher';
 
 /** @test {expand} */
@@ -23,23 +23,6 @@ describe('expand', () => {
       const values = { a: 1, b: 2, c: 4, d: 8 };
 
       const result = e1.pipe(expand((x) => (x === 8 ? EMPTY : e2.pipe(map((c) => c * x)))));
-
-      expectObservable(result).toBe(expected, values);
-      expectSubscriptions(e1.subscriptions).toBe(e1subs);
-    });
-  });
-
-  it('should work with scheduler', () => {
-    testScheduler.run(({ cold, hot, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('  --x----|  ', { x: 1 });
-      const e1subs = '  ^------!  ';
-      const e2 = cold('   --c|    ', { c: 2 });
-      //                    --c|
-      //                      --c|
-      const expected = '--a-b-c-d|';
-      const values = { a: 1, b: 2, c: 4, d: 8 };
-
-      const result = e1.pipe(expand((x) => (x === 8 ? EMPTY : e2.pipe(map((c) => c * x))), Infinity, testScheduler));
 
       expectObservable(result).toBe(expected, values);
       expectSubscriptions(e1.subscriptions).toBe(e1subs);
@@ -469,33 +452,11 @@ describe('expand', () => {
         return cold(e2shape, { z: x + x });
       };
 
-      const result = e1.pipe(expand(project, undefined, undefined));
+      const result = e1.pipe(expand(project, undefined));
 
       expectObservable(result).toBe(expected, values);
       expectSubscriptions(e1.subscriptions).toBe(e1subs);
     });
-  });
-
-  it('should work with the AsapScheduler', (done) => {
-    const expected = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    of(0)
-      .pipe(
-        expand((x) => of(x + 1), Infinity, asapScheduler),
-        take(10),
-        toArray()
-      )
-      .subscribe({ next: (actual) => expect(actual).to.deep.equal(expected), error: done, complete: done });
-  });
-
-  it('should work with the AsyncScheduler', (done) => {
-    const expected = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    of(0)
-      .pipe(
-        expand((x) => of(x + 1), Infinity, asyncScheduler),
-        take(10),
-        toArray()
-      )
-      .subscribe({ next: (actual) => expect(actual).to.deep.equal(expected), error: done, complete: done });
   });
 
   it('should stop listening to a synchronous observable when unsubscribed', () => {
