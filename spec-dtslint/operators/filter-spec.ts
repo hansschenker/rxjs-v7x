@@ -9,20 +9,12 @@ it('should support a predicate with an index', () => {
   const o = of(1, 2, 3).pipe(filter((value, index) => index < 3)); // $ExpectType Observable<number>
 });
 
-it('should support a predicate and an argument', () => {
-  const o = of(1, 2, 3).pipe(filter(value => value < 3, 'bonjour')); // $ExpectType Observable<number>
-});
-
 it('should support a user-defined type guard', () => {
   const o = of(1, 2, 3).pipe(filter((value: number): value is 1 => value < 3)); // $ExpectType Observable<1>
 });
 
 it('should support a user-defined type guard with an index', () => {
   const o = of(1, 2, 3).pipe(filter((value: number, index): value is 1 => index < 3)); // $ExpectType Observable<1>
-});
-
-it('should support a user-defined type guard and an argument', () => {
-  const o = of(1, 2, 3).pipe(filter((value: number): value is 1 => value < 3, 'hola')); // $ExpectType Observable<1>
 });
 
 it('should enforce types', () => {
@@ -84,17 +76,9 @@ it('should support inference from a predicate that returns any', () => {
   const o$ = of(1).pipe(filter(isTruthy)); // $ExpectType Observable<number>
 });
 
-it('should support this', () => {
-  const thisArg = { limit: 5 };
-  const a = of(1, 2, 3).pipe(filter(function (val) {
-    const limit = this.limit; // $ExpectType number
-    return val < limit;
-  }, thisArg));
-});
-
-it('should deprecate thisArg usage', () => {
+it('should not accept a thisArg', () => {
   const a = of(1, 2, 3).pipe(filter(Boolean)); // $ExpectNoDeprecation
-  const b = of(1, 2, 3).pipe(filter(Boolean, {})); // $ExpectDeprecation
+  const b = of(1, 2, 3).pipe(filter(Boolean, {})); // $ExpectError
   const c = of(1, 2, 3).pipe(filter((value) => Boolean(value))); // $ExpectNoDeprecation
-  const d = of(1, 2, 3).pipe(filter((value) => Boolean(value), {})); // $ExpectDeprecation
+  const d = of(1, 2, 3).pipe(filter((value) => Boolean(value), {})); // $ExpectError
 });

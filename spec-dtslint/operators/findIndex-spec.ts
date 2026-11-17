@@ -13,10 +13,6 @@ it('should support a predicate that takes a source ', () => {
   const o = of('foo', 'bar', 'baz').pipe(findIndex((p, index, source) => p === 'foo')); // $ExpectType Observable<number>
 });
 
-it('should support an argument ', () => {
-  const o = of('foo', 'bar', 'baz').pipe(findIndex(p => p === 'foo', 123)); // $ExpectType Observable<number>
-});
-
 it('should enforce types', () => {
   const o = of('foo', 'bar', 'baz').pipe(findIndex()); // $ExpectError
 });
@@ -43,17 +39,9 @@ it('should support inference from a predicate that returns any', () => {
   const a = of(1).pipe(findIndex(isTruthy)); // $ExpectType Observable<number>
 });
 
-it('should support this', () => {
-  const thisArg = { wanted: 5 };
-  const a = of(1, 2, 3).pipe(findIndex(function (val) {
-    const wanted = this.wanted; // $ExpectType number
-    return val < wanted;
-  }, thisArg));
-});
-
-it('should deprecate thisArg usage', () => {
+it('should not accept a thisArg', () => {
   const a = of(1, 2, 3).pipe(findIndex(Boolean)); // $ExpectNoDeprecation
-  const b = of(1, 2, 3).pipe(findIndex(Boolean, {})); // $ExpectDeprecation
+  const b = of(1, 2, 3).pipe(findIndex(Boolean, {})); // $ExpectError
   const c = of(1, 2, 3).pipe(findIndex((value) => Boolean(value))); // $ExpectNoDeprecation
-  const d = of(1, 2, 3).pipe(findIndex((value) => Boolean(value), {})); // $ExpectDeprecation
+  const d = of(1, 2, 3).pipe(findIndex((value) => Boolean(value), {})); // $ExpectError
 });

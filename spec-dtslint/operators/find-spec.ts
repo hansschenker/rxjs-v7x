@@ -34,17 +34,9 @@ it('should support Boolean properly', () => {
   const o4 = of(false, false, false, false).pipe(find(Boolean)); // $ExpectType Observable<true>
 });
 
-it('should support this', () => {
-  const thisArg = { wanted: 5 };
-  const a = of(1, 2, 3).pipe(find(function (val) {
-    const wanted = this.wanted; // $ExpectType number
-    return val < wanted;
-  }, thisArg));
-});
-
-it('should deprecate thisArg usage', () => {
+it('should not accept a thisArg', () => {
   const a = of(1, 2, 3).pipe(find(Boolean)); // $ExpectNoDeprecation
-  const b = of(1, 2, 3).pipe(find(Boolean, {})); // $ExpectDeprecation
+  const b = of(1, 2, 3).pipe(find(Boolean, {})); // $ExpectError
   const c = of(1, 2, 3).pipe(find((value) => Boolean(value))); // $ExpectNoDeprecation
-  const d = of(1, 2, 3).pipe(find((value) => Boolean(value), {})); // $ExpectDeprecation
+  const d = of(1, 2, 3).pipe(find((value) => Boolean(value), {})); // $ExpectError
 });

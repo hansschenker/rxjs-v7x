@@ -17,10 +17,6 @@ it('should infer source observable type in parameter', () => {
   const a = of(1, 2, 3).pipe(every((val, index, source: Observable<number>) => val < 3)); // $ExpectType Observable<boolean>
 });
 
-it('should support optional thisArg parameter', () => {
-  const a = of(1, 2, 3).pipe(every((val, index, source: Observable<number>) => val < 3, 'any object')); // $ExpectType Observable<boolean>
-});
-
 it('should not accept empty parameter', () => {
   const a = of(1, 2, 3).pipe(every()); // $ExpectError
 });
@@ -45,17 +41,9 @@ it('should handle the Boolean constructor', () => {
   const e = of(0, 1, 0).pipe(every(Boolean)); // $ExpectType Observable<boolean>
 })
 
-it('should support this', () => {
-  const thisArg = { limit: 5 };
-  const a = of(1, 2, 3).pipe(every(function (val) {
-    const limit = this.limit; // $ExpectType number
-    return val < limit;
-  }, thisArg));
-});
-
-it('should deprecate thisArg usage', () => {
+it('should not accept a thisArg', () => {
   const a = of(1, 2, 3).pipe(every(Boolean)); // $ExpectNoDeprecation
-  const b = of(1, 2, 3).pipe(every(Boolean, {})); // $ExpectDeprecation
+  const b = of(1, 2, 3).pipe(every(Boolean, {})); // $ExpectError
   const c = of(1, 2, 3).pipe(every((value) => Boolean(value))); // $ExpectNoDeprecation
-  const d = of(1, 2, 3).pipe(every((value) => Boolean(value), {})); // $ExpectDeprecation
+  const d = of(1, 2, 3).pipe(every((value) => Boolean(value), {})); // $ExpectError
 });

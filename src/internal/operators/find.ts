@@ -4,19 +4,9 @@ import { OperatorFunction, TruthyTypesOf } from '../types';
 import { fromSource, toDestination } from '../operate';
 
 export function find<T>(predicate: BooleanConstructor): OperatorFunction<T, TruthyTypesOf<T>>;
-/** @deprecated Use a closure instead of a `thisArg`. Signatures accepting a `thisArg` will be removed in v8. */
-export function find<T, S extends T, A>(
-  predicate: (this: A, value: T, index: number, source: Observable<T>) => value is S,
-  thisArg: A
-): OperatorFunction<T, S | undefined>;
 export function find<T, S extends T>(
   predicate: (value: T, index: number, source: Observable<T>) => value is S
 ): OperatorFunction<T, S | undefined>;
-/** @deprecated Use a closure instead of a `thisArg`. Signatures accepting a `thisArg` will be removed in v8. */
-export function find<T, A>(
-  predicate: (this: A, value: T, index: number, source: Observable<T>) => boolean,
-  thisArg: A
-): OperatorFunction<T, T | undefined>;
 export function find<T>(predicate: (value: T, index: number, source: Observable<T>) => boolean): OperatorFunction<T, T | undefined>;
 /**
  * Emits only the first value emitted by the source Observable that meets some
@@ -55,23 +45,14 @@ export function find<T>(predicate: (value: T, index: number, source: Observable<
  * @see {@link take}
  *
  * @param predicate A function called with each item to test for condition matching.
- * @param thisArg An optional argument to determine the value of `this` in the
- * `predicate` function.
  * @return A function that returns an Observable that emits the first item that
  * matches the condition.
  */
-export function find<T>(
-  predicate: (value: T, index: number, source: Observable<T>) => boolean,
-  thisArg?: any
-): OperatorFunction<T, T | undefined> {
-  return fromSource((source, destination) => createFind(predicate, thisArg, 'value')(source, destination));
+export function find<T>(predicate: (value: T, index: number, source: Observable<T>) => boolean): OperatorFunction<T, T | undefined> {
+  return fromSource((source, destination) => createFind(predicate, 'value')(source, destination));
 }
 
-export function createFind<T>(
-  predicate: (value: T, index: number, source: Observable<T>) => boolean,
-  thisArg: any,
-  emit: 'value' | 'index'
-) {
+export function createFind<T>(predicate: (value: T, index: number, source: Observable<T>) => boolean, emit: 'value' | 'index') {
   const findIndex = emit === 'index';
   return (source: Observable<T>, subscriber: Subscriber<any>) => {
     let index = 0;
@@ -80,7 +61,7 @@ export function createFind<T>(
         destination: subscriber,
         next: (value) => {
           const i = index++;
-          if (predicate.call(thisArg, value, i, source)) {
+          if (predicate(value, i, source)) {
             subscriber.next(findIndex ? i : value);
             subscriber.complete();
           }

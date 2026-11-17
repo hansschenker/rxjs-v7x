@@ -232,36 +232,6 @@ describe('filter', () => {
     });
   });
 
-  it('should be able to accept and use a thisArg', () => {
-    testScheduler.run(({ hot, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('-1--2--^-3-4-5-6--7-8--9--|');
-      const e1subs = '       ^------------------!';
-      const expected = '     --------6----------|';
-
-      class Filterer {
-        filter1 = (x: string) => +x % 2 === 0;
-        filter2 = (x: string) => +x % 3 === 0;
-      }
-
-      const filterer = new Filterer();
-
-      const result = e1.pipe(
-        filter(function (this: any, x) {
-          return this.filter1(x);
-        }, filterer),
-        filter(function (this: any, x) {
-          return this.filter2(x);
-        }, filterer),
-        filter(function (this: any, x) {
-          return this.filter1(x);
-        }, filterer)
-      );
-
-      expectObservable(result).toBe(expected);
-      expectSubscriptions(e1.subscriptions).toBe(e1subs);
-    });
-  });
-
   it('should be able to use filter and map composed', () => {
     testScheduler.run(({ hot, expectObservable, expectSubscriptions }) => {
       const e1 = hot('-1--2--^-3-4-5-6--7-8--9--|');

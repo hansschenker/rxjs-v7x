@@ -9,8 +9,9 @@
 This repository is [RxJS 7.8.2](https://github.com/ReactiveX/rxjs/tree/7.8.2) with one change
 taken from RxJS 8: operators are built with the v8 `operate()` primitive, and the `lift`
 mechanism is gone. On top of that, the two ends of an operator have explicit names:
-`fromSource` and `toDestination`. Everything else, including `Subject`, `Subscription`,
-`SafeSubscriber`, the `config` flags and `toPromise`, is the 7.8.2 implementation.
+`fromSource` and `toDestination`, and the deprecated `thisArg` parameter is removed. Everything
+else, including `Subject`, `Subscription`, `SafeSubscriber`, the `config` flags and `toPromise`,
+is the 7.8.2 implementation.
 
 ## The two ends of an operator: `fromSource` / `toDestination`
 
@@ -68,9 +69,41 @@ count must be shared by all subscribers, so it creates them once at pipe time, b
 `(source) =>` and `new Observable(...)`. `fromSource` runs its function once per subscription, which
 would give every subscriber its own connection.
 
+## No `thisArg`: use an arrow function
+
+`map`, `filter`, `every`, `find`, `findIndex` and `partition` (the operator and the creation
+function) no longer take a `thisArg`. Your function is called directly, as `project(value, index)`.
+7.8.2 already marked these signatures as deprecated, with the note that they would be removed in v8.
+
+An arrow function has no `this` of its own; it uses the `this` of the place where it is written.
+That covers the usual `thisArg` case, a callback inside a class method:
+
+```ts
+// RxJS 7.8.2
+source.pipe(filter(function (value) { return value > this.min; }, this));
+
+// rxjs-v7x
+source.pipe(filter((value) => value > this.min));
+```
+
+Edge case: an existing named function that reads `this` cannot be turned into an arrow at the call
+site. Bind it, or wrap it:
+
+```ts
+source.pipe(filter(isAboveMin.bind(limits)));
+source.pipe(filter((value) => isAboveMin.call(limits, value)));
+```
+
+TypeScript reports a second argument as an error. Plain JavaScript ignores it silently, and `this`
+inside a regular `function` callback is then `undefined`.
+
+Edge case, compared with RxJS 8: `8.0.0-alpha.14` removed `thisArg` from `map`, `every`, `find` and
+`findIndex`, but `filter` and the `partition` creation function still accept it there. rxjs-v7x
+removes it from all six.
+
 ## How this fork was built
 
-The change is four commits on top of the `7.8.2` tag:
+The change is five commits on top of the `7.8.2` tag:
 
 1. `feat(operate)`: `Subscriber` accepts `SubscriberOverrides` (`next`, `error`, `complete`,
    `finalize`) as a second constructor argument, and the public `operate({ destination, ... })`
@@ -85,6 +118,9 @@ The change is four commits on top of the `7.8.2` tag:
    `ToDestinationConfig` type. `operate` and `OperateConfig` remain as aliases. Every operator and
    internal helper except `share` is written with the pair, and the creation functions
    (`combineLatest`, `forkJoin`, `zip`, `race`, …) use `toDestination`.
+5. `refactor!`: the deprecated `thisArg` parameter is removed from `map`, `filter`, `every`,
+   `find`, `findIndex` and `partition`, together with its overloads, its tests and the `thisArg`
+   argument of the internal `createFind` and `not` helpers.
 
 Because no operator calls `lift`, the built-in operators accept any object whose `subscribe`
 takes an observer and returns something unsubscribable, with no `from()` required.
@@ -93,7 +129,7 @@ Verification on TypeScript 4.2.4 (the toolchain pinned by 7.8.2): `npm run compi
 `npm run dtslint`, `npm run lint_src`, `npm run lint_spec`, `npm run test:esm`,
 `npm run test:circular`, `npm run build:global` and `node tools/prepare-package.js` all pass.
 `npm test` with the four real-timer spec files excluded (`buffer`, `delayWhen`, `skipUntil`,
-`window`) reports 3164 passing, 4 pending and the two pre-existing environment failures (`ajax`
+`window`) reports 3154 passing, 4 pending and the two pre-existing environment failures (`ajax`
 asserts V8's old `JSON.parse` message, `webSocket` expects no global `WebSocket`). The four
 real-timer files abort mocha on Windows timer granularity. On Linux they run, and `skipUntil` and
 `window` fail intermittently on the unchanged 7.8.2 code as well. `npm run build:package` and

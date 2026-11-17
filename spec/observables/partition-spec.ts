@@ -74,25 +74,6 @@ describe('partition', () => {
     });
   });
 
-  it('should partition an observable into two using a predicate and thisArg', () => {
-    rxTestScheduler.run(({ hot, expectSubscriptions }) => {
-      const e1 = hot('   --a-b---a------d--a---c--|');
-      const e1subs = '   ^------------------------!';
-      // prettier-ignore
-      const expected = [
-        '                --a-----a---------a------|',
-        '                ----b----------d------c--|',
-      ];
-
-      function predicate(this: any, x: string) {
-        return x === this.value;
-      }
-
-      expectObservableArray(partition(e1, predicate, { value: 'a' }), expected);
-      expectSubscriptions(e1.subscriptions).toBe([e1subs, e1subs]);
-    });
-  });
-
   it('should pass errors to both returned observables', () => {
     rxTestScheduler.run(({ hot, expectSubscriptions }) => {
       const e1 = hot('   --a-b---#');
@@ -332,16 +313,4 @@ describe('partition', () => {
     });
   });
 
-  it('should accept thisArg', () => {
-    const thisArg = {};
-
-    partition(
-      of(1),
-      function (this: any, value: number) {
-        expect(this).to.deep.equal(thisArg);
-        return true;
-      },
-      thisArg
-    ).forEach((observable: Observable<number>) => observable.subscribe());
-  });
 });
